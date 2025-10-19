@@ -126,6 +126,13 @@ def khoi_tao_db():
     """
     )
 
+    # Thử thêm cột hoadon_id nếu DB cũ chưa có (ALTER TABLE ADD COLUMN an toàn trong sqlite)
+    try:
+        c.execute("ALTER TABLE GiaoDichQuy ADD COLUMN hoadon_id INTEGER")
+    except Exception:
+        # Nếu cột đã tồn tại hoặc lệnh thất bại, bỏ qua
+        pass
+
     conn.commit()
     conn.close()
 

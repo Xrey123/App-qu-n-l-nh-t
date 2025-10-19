@@ -88,7 +88,8 @@ def lay_so_du(user_id):
     return r[0] if r else 0
 
 
-def chuyen_tien(tu_user, den_user, so_tien):
+def chuyen_tien(tu_user, den_user, so_tien, hoadon_id=None):
+    """Chuyển tiền giữa 2 user. Nếu biết hoadon_id, lưu kèm vào giao dịch để theo dõi theo hóa đơn."""
     conn = ket_noi()
     c = conn.cursor()
     try:
@@ -99,15 +100,34 @@ def chuyen_tien(tu_user, den_user, so_tien):
             return False, "Khong du so du"
         c.execute("UPDATE Users SET so_du = so_du - ? WHERE id=?", (so_tien, tu_user))
         c.execute("UPDATE Users SET so_du = so_du + ? WHERE id=?", (so_tien, den_user))
-        c.execute(
-            "INSERT INTO GiaoDichQuy (user_id, user_nhan_id, so_tien, ngay) VALUES (?, ?, ?, datetime('now'))",
-            (tu_user, den_user, so_tien),
-        )
+        # Lưu giao dịch có thể kèm hoadon_id (nếu có)
+        if hoadon_id is not None:
+            c.execute(
+                "INSERT INTO GiaoDichQuy (user_id, user_nhan_id, so_tien, ngay, hoadon_id) VALUES (?, ?, ?, datetime('now'), ?)",
+                (tu_user, den_user, so_tien, hoadon_id),
+            )
+        else:
+            c.execute(
+                "INSERT INTO GiaoDichQuy (user_id, user_nhan_id, so_tien, ngay) VALUES (?, ?, ?, datetime('now'))",
+                (tu_user, den_user, so_tien),
+            )
         conn.commit()
         return True, None
     except Exception as e:
         conn.rollback()
         return False, str(e)
+    finally:
+        conn.close()
+
+
+def lay_tong_nop_theo_hoadon(hoadon_id):
+    """Trả về tổng số tiền đã nộp cho một hoadon (theo cột hoadon_id trong GiaoDichQuy)."""
+    conn = ket_noi()
+    c = conn.cursor()
+    try:
+        c.execute("SELECT SUM(so_tien) FROM GiaoDichQuy WHERE hoadon_id = ?", (hoadon_id,))
+        r = c.fetchone()
+        return r[0] if r and r[0] is not None else 0
     finally:
         conn.close()
 
