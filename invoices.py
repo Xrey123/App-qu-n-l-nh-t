@@ -99,15 +99,19 @@ def tao_hoa_don(user_id, khach_hang, items, uu_dai, xuat_hoa_don, giam_gia):
                 ),
             )
 
-            # Lấy giá lẻ để tính chênh lệch
-            c.execute("SELECT gia_le FROM SanPham WHERE id = ?", (sanpham_id,))
-            result = c.fetchone()
-            gia_le = result[0]
-
-            # Tính chenh_lech_cong_doan nếu loai_gia là buon hoặc vip
+            # Tính chenh_lech_cong_doan theo logic đúng:
+            # - VIP: chênh lệch = 0
+            # - Buôn: chênh lệch = 0
+            # - Lẻ: chênh lệch = (giá_lẻ - giá_buôn) * số_lượng - giảm_giá
             chenh_lech = 0
-            if loai_gia in ["buon", "vip"]:
-                chenh_lech = (gia_le - gia) * so_luong
+            if loai_gia == "le":
+                # Lấy cả giá lẻ và giá buôn
+                c.execute("SELECT gia_le, gia_buon FROM SanPham WHERE id = ?", (sanpham_id,))
+                result = c.fetchone()
+                if result:
+                    gia_le_db, gia_buon_db = result
+                    chenh_lech = (gia_le_db - gia_buon_db) * so_luong - giam
+            # else: VIP và Buôn thì chênh lệch = 0
 
         # Commit transaction sau khi INSERT
         conn.commit()
@@ -121,10 +125,15 @@ def tao_hoa_don(user_id, khach_hang, items, uu_dai, xuat_hoa_don, giam_gia):
             xuat_hoa_don_item = item["xuat_hoa_don"]
             loai_gia = item["loai_gia"]
 
-            # Tính lại chenh_lech để truyền (đã tính ở trên, nhưng giữ để rõ)
-            c.execute("SELECT gia_le FROM SanPham WHERE id = ?", (sanpham_id,))
-            gia_le = c.fetchone()[0]
-            chenh_lech = (gia_le - gia) * so_luong if loai_gia in ["buon", "vip"] else 0
+            # Tính lại chenh_lech để truyền vào LogKho
+            # Logic: VIP=0, Buôn=0, Lẻ=(giá_lẻ - giá_buôn)*số_lượng - giảm_giá
+            chenh_lech = 0
+            if loai_gia == "le":
+                c.execute("SELECT gia_le, gia_buon FROM SanPham WHERE id = ?", (sanpham_id,))
+                result = c.fetchone()
+                if result:
+                    gia_le_db, gia_buon_db = result
+                    chenh_lech = (gia_le_db - gia_buon_db) * so_luong - giam
 
             print(
                 f"Calling cap_nhat_kho_sau_ban: sanpham_id={sanpham_id}, so_luong={so_luong}, gia={gia}, chenh_lech={chenh_lech}"

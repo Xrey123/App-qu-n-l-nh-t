@@ -2767,29 +2767,32 @@ class MainWindow(QWidget):
             QMessageBox.warning(self, "Lỗi", f"Lỗi tải báo cáo công đoàn: {e}")
 
     def chuyen_tien_cong_doan_click(self):
-        # Dialog giống như chuyển tiền ở tab Số dư
+        # Dialog chuyển tiền công đoàn
         dialog = QDialog(self)
         dialog.setWindowTitle("Chuyển tiền công đoàn")
         layout = QVBoxLayout()
 
-        # Lấy username của user hiện tại
+        # Tìm user Accountant (KT) để làm nguồn tiền
         from users import lay_tat_ca_user
         users = lay_tat_ca_user()
-        current_username = None
+        accountant_id = None
+        accountant_name = None
         for user in users:
-            if user[0] == self.user_id:
-                current_username = user[1]
+            if user[2] == "Accountant":  # user[2] là role
+                accountant_id = user[0]
+                accountant_name = user[1]
                 break
+        
+        if not accountant_id:
+            QMessageBox.warning(self, "Lỗi", "Không tìm thấy user Accountant (KT)")
+            return
 
-        layout.addWidget(QLabel(f"Từ user: {current_username}"))
-        layout.addWidget(QLabel("Đến user:"))
-
-        # ComboBox chọn user
-        den_user_combo = QComboBox()
-        for user in users:
-            if user[0] != self.user_id:
-                den_user_combo.addItem(f"{user[1]} (ID: {user[0]})", user[0])
-        layout.addWidget(den_user_combo)
+        layout.addWidget(QLabel(f"Từ user: {accountant_name} (Accountant)"))
+        
+        layout.addWidget(QLabel("Đến user (nhập tên):"))
+        den_user_edit = QLineEdit()
+        den_user_edit.setPlaceholderText("Nhập tên người nhận...")
+        layout.addWidget(den_user_edit)
         
         layout.addWidget(QLabel("Số tiền:"))
         so_tien_edit = QLineEdit()
@@ -2810,9 +2813,13 @@ class MainWindow(QWidget):
         if dialog.exec_() != QDialog.Accepted:
             return
 
-        den_user_id = den_user_combo.currentData()
+        den_user_name = den_user_edit.text().strip()
         so_tien_str = so_tien_edit.text()
         noi_dung = noi_dung_edit.text()
+
+        if not den_user_name:
+            QMessageBox.warning(self, "Lỗi", "Vui lòng nhập tên người nhận")
+            return
 
         if not so_tien_str:
             QMessageBox.warning(self, "Lỗi", "Vui lòng nhập số tiền")
@@ -2824,28 +2831,45 @@ class MainWindow(QWidget):
             QMessageBox.warning(self, "Lỗi", "Số tiền không hợp lệ")
             return
 
-        from users import chuyen_tien
-        success, err = chuyen_tien(self.user_id, den_user_id, so_tien)
-        
-        if success:
-            # Cập nhật ghi chú nếu có
-            if noi_dung:
-                try:
-                    conn = ket_noi()
-                    c = conn.cursor()
-                    c.execute(
-                        "UPDATE GiaoDichQuy SET ghi_chu = ? WHERE user_id = ? AND user_nhan_id = ? ORDER BY id DESC LIMIT 1",
-                        (noi_dung, self.user_id, den_user_id)
-                    )
-                    conn.commit()
-                    conn.close()
-                except:
-                    pass
+        # Trừ tiền từ Accountant và ghi log
+        try:
+            from datetime import datetime
+            conn = ket_noi()
+            c = conn.cursor()
             
-            QMessageBox.information(self, "Thành công", f"Đã chuyển {format_price(so_tien)} thành công")
+            # Kiểm tra số dư accountant
+            c.execute("SELECT so_du FROM Users WHERE id = ?", (accountant_id,))
+            result = c.fetchone()
+            so_du = result[0] if result else 0
+            
+            if so_du < so_tien:
+                QMessageBox.warning(self, "Lỗi", f"Số dư Accountant không đủ!\nSố dư hiện tại: {format_price(so_du)}\nCần: {format_price(so_tien)}")
+                conn.close()
+                return
+            
+            # Trừ tiền từ accountant
+            c.execute("UPDATE Users SET so_du = so_du - ? WHERE id = ?", (so_tien, accountant_id))
+            
+            # Ghi log vào GiaoDichQuy (không có user_nhan_id vì nhận bằng tay)
+            thoi_gian = datetime.now().isoformat()
+            ghi_chu_full = f"Chuyển công đoàn cho: {den_user_name}. {noi_dung}" if noi_dung else f"Chuyển công đoàn cho: {den_user_name}"
+            c.execute(
+                "INSERT INTO GiaoDichQuy (user_id, user_nhan_id, so_tien, ngay, ghi_chu) VALUES (?, NULL, ?, ?, ?)",
+                (accountant_id, so_tien, thoi_gian, ghi_chu_full)
+            )
+            
+            conn.commit()
+            conn.close()
+            
+            QMessageBox.information(self, "Thành công", f"Đã chuyển {format_price(so_tien)} từ {accountant_name} cho {den_user_name}")
             self.load_so_quy()
-        else:
-            QMessageBox.warning(self, "Lỗi", f"Chuyển tiền thất bại: {err}")
+            
+        except Exception as e:
+            QMessageBox.warning(self, "Lỗi", f"Lỗi chuyển tiền: {e}")
+            try:
+                conn.close()
+            except:
+                pass
 
     def print_bao_cao_cong_doan(self):
         tu_ngay = self.tu_ngay_edit.date().toString("dd/MM/yyyy")
