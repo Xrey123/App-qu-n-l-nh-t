@@ -90,6 +90,7 @@ def lay_so_du(user_id):
 
 def chuyen_tien(tu_user, den_user, so_tien, hoadon_id=None):
     """Chuyển tiền giữa 2 user. Nếu biết hoadon_id, lưu kèm vào giao dịch để theo dõi theo hóa đơn."""
+    from datetime import datetime
     conn = ket_noi()
     c = conn.cursor()
     try:
@@ -100,16 +101,17 @@ def chuyen_tien(tu_user, den_user, so_tien, hoadon_id=None):
             return False, "Khong du so du"
         c.execute("UPDATE Users SET so_du = so_du - ? WHERE id=?", (so_tien, tu_user))
         c.execute("UPDATE Users SET so_du = so_du + ? WHERE id=?", (so_tien, den_user))
-        # Lưu giao dịch có thể kèm hoadon_id (nếu có)
+        # Lưu giao dịch với thời gian local (giờ Việt Nam)
+        thoi_gian_hien_tai = datetime.now().isoformat()
         if hoadon_id is not None:
             c.execute(
-                "INSERT INTO GiaoDichQuy (user_id, user_nhan_id, so_tien, ngay, hoadon_id) VALUES (?, ?, ?, datetime('now'), ?)",
-                (tu_user, den_user, so_tien, hoadon_id),
+                "INSERT INTO GiaoDichQuy (user_id, user_nhan_id, so_tien, ngay, hoadon_id) VALUES (?, ?, ?, ?, ?)",
+                (tu_user, den_user, so_tien, thoi_gian_hien_tai, hoadon_id),
             )
         else:
             c.execute(
-                "INSERT INTO GiaoDichQuy (user_id, user_nhan_id, so_tien, ngay) VALUES (?, ?, ?, datetime('now'))",
-                (tu_user, den_user, so_tien),
+                "INSERT INTO GiaoDichQuy (user_id, user_nhan_id, so_tien, ngay) VALUES (?, ?, ?, ?)",
+                (tu_user, den_user, so_tien, thoi_gian_hien_tai),
             )
         conn.commit()
         return True, None

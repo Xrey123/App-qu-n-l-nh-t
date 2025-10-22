@@ -9,6 +9,19 @@ def ket_noi():
 
 
 def khoi_tao_db():
+    # Tự động thêm cột ghi_chu vào GiaoDichQuy nếu chưa có
+    try:
+        conn = ket_noi()
+        c = conn.cursor()
+        c.execute("PRAGMA table_info(GiaoDichQuy)")
+        columns = [row[1] for row in c.fetchall()]
+        if "ghi_chu" not in columns:
+            c.execute("ALTER TABLE GiaoDichQuy ADD COLUMN ghi_chu TEXT")
+            conn.commit()
+    except Exception as e:
+        print("Lỗi khi thêm cột ghi_chu vào GiaoDichQuy:", e)
+    finally:
+        conn.close()
     conn = ket_noi()
     c = conn.cursor()
 
@@ -133,6 +146,28 @@ def khoi_tao_db():
         # Nếu cột đã tồn tại hoặc lệnh thất bại, bỏ qua
         pass
 
+    conn.commit()
+    conn.close()
+
+    # Bảng ghi chênh lệch kiểm kê/nhận hàng để tra cứu sau này
+    conn = ket_noi()
+    c = conn.cursor()
+    c.execute(
+        """
+        CREATE TABLE IF NOT EXISTS ChenhLech (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sanpham_id INTEGER,
+            user_id INTEGER,
+            ngay TEXT,
+            chenh REAL,
+            ton_truoc REAL,
+            ton_sau REAL,
+            ghi_chu TEXT,
+            FOREIGN KEY(sanpham_id) REFERENCES SanPham(id),
+            FOREIGN KEY(user_id) REFERENCES Users(id)
+        )
+        """
+    )
     conn.commit()
     conn.close()
 

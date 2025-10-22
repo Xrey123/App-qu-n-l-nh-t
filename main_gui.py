@@ -28,6 +28,7 @@ from PyQt5.QtWidgets import (
     QHeaderView,
 )
 from PyQt5.QtCore import Qt, QDate
+from get_username import lay_username
 from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
 from PyQt5.QtGui import QPainter, QDoubleValidator
 
@@ -70,7 +71,6 @@ from stock import (
     lay_san_pham_chua_xuat,
     xuat_bo_san_pham,
     lay_tong_chua_xuat_theo_sp,
-    lay_bao_cao_cong_doan,
     lay_san_pham_chua_xuat_theo_loai_gia,
     xuat_bo_san_pham_theo_ten,
 )
@@ -144,6 +144,7 @@ class MainWindow(QWidget):
         self.user_id = user_id
         self.role = role
         self.login_window = login_window
+        self.last_invoice_id = None  # Lưu ID hóa đơn mới nhất trong ca
 
         self.setWindowTitle(f"App Nhot - Role: {role}")
         # Thiết lập kích thước cửa sổ
@@ -170,15 +171,41 @@ class MainWindow(QWidget):
         self.tabs = QTabWidget()
         main_layout.addWidget(self.tabs)
 
+        # In-memory map of products available for sale in this session.
+        # Keys: product name, value: total received quantity (float)
+        self.available_products = {}
+
+        # Track whether user has completed receiving products
+        self.nhan_hang_completed = False
+        # Track whether shift is closed
+        self.ca_closed = False
+
         if self.role in ["accountant", "admin"]:
             self.tab_sanpham = QWidget()
             self.tabs.addTab(self.tab_sanpham, "San pham")
             self.init_tab_sanpham()
 
+        # Create a parent tab "Ca bán hàng" which contains two child tabs:
+        # - "Bán hàng" (where products can be sold)
+        # - "Nhận hàng" (where users record received items)
+        self.tab_ca_banhang = QWidget()
+        ca_layout = QVBoxLayout()
+        self.tab_ca_banhang_tabs = QTabWidget()
+        ca_layout.addWidget(self.tab_ca_banhang_tabs)
+        self.tab_ca_banhang.setLayout(ca_layout)
+        self.tabs.addTab(self.tab_ca_banhang, "Ca bán hàng")
+
+        # Child tab: Nhận hàng - make available to all users (not only accountant)
+        self.tab_nhan_hang = QWidget()
+        self.tab_ca_banhang_tabs.addTab(self.tab_nhan_hang, "Nhận hàng")
+        self.init_tab_nhan_hang()
+
+        # Child tab: Bán hàng
         self.tab_banhang = QWidget()
-        self.tabs.addTab(self.tab_banhang, "Ban hang")
+        self.tab_ca_banhang_tabs.addTab(self.tab_banhang, "Bán hàng")
         self.init_tab_banhang()
 
+        # Other top-level tabs
         self.tab_chitietban = QWidget()
         self.tabs.addTab(self.tab_chitietban, "Chi tiet ban")
         self.init_tab_chitietban()
@@ -196,6 +223,12 @@ class MainWindow(QWidget):
             self.tabs.addTab(self.tab_user, "Quan ly User")
             self.init_tab_user()
 
+        # Tab chênh lệch cho admin và accountant
+        if self.role in ["admin", "accountant"]:
+            self.tab_chenhlech = QWidget()
+            self.tabs.addTab(self.tab_chenhlech, "Chênh lệch")
+            self.init_tab_chenhlech()
+
         if self.role == "accountant":
             self.tab_xuat_bo = QWidget()
             self.tabs.addTab(self.tab_xuat_bo, "Xuat bo")
@@ -209,19 +242,19 @@ class MainWindow(QWidget):
             self.tabs.addTab(self.tab_so_quy, "So quy")
             self.init_tab_so_quy()
 
-            # Tab nhận hàng cho mọi user
-            self.tab_nhan_hang = QWidget()
-            self.tabs.addTab(self.tab_nhan_hang, "Nhận hàng")
-            self.init_tab_nhan_hang()
-
     def init_tab_nhan_hang(self):
         layout = QVBoxLayout()
-        layout.addWidget(QLabel("Nhập số lượng sản phẩm đã nhận trong ca này:"))
+        layout.addWidget(
+            QLabel("Kiểm kê / Nhập số lượng hiện có (so sánh với tồn hệ thống):")
+        )
 
-        # Bảng nhập số lượng nhận
+        # Bảng nhập số lượng kiểm kê
         self.tbl_nhan_hang = QTableWidget()
-        self.tbl_nhan_hang.setColumnCount(3)
-        self.tbl_nhan_hang.setHorizontalHeaderLabels(["Tên sản phẩm", "Số lượng nhận", "Ghi chú"])
+        # Columns: Tên, Số lượng đếm, Tồn hệ thống, Chênh lệch, Ghi chú
+        self.tbl_nhan_hang.setColumnCount(5)
+        self.tbl_nhan_hang.setHorizontalHeaderLabels(
+            ["Tên sản phẩm", "Số lượng đếm", "Tồn hệ thống", "Chênh lệch", "Ghi chú"]
+        )
         self.setup_table(self.tbl_nhan_hang)
         layout.addWidget(self.tbl_nhan_hang)
 
@@ -234,42 +267,317 @@ class MainWindow(QWidget):
         btn_confirm = QPushButton("Xác nhận nhận hàng")
         btn_confirm.clicked.connect(self.xac_nhan_nhan_hang)
         layout.addWidget(btn_confirm)
-        # Nút đóng ca
-        btn_close_shift = QPushButton("Đóng ca (In tổng kết)")
-        btn_close_shift.clicked.connect(self.dong_ca_in_pdf)
-        layout.addWidget(btn_close_shift)
         self.tab_nhan_hang.setLayout(layout)
 
     def load_sanpham_nhan_hang(self):
         from products import lay_tat_ca_sanpham
+
         sp_list = lay_tat_ca_sanpham()
         self.tbl_nhan_hang.setRowCount(len(sp_list))
         for row, sp in enumerate(sp_list):
-            self.tbl_nhan_hang.setItem(row, 0, QTableWidgetItem(sp[1]))  # Tên sản phẩm
-            self.tbl_nhan_hang.setItem(row, 1, QTableWidgetItem("0"))   # Số lượng nhận
-            self.tbl_nhan_hang.setItem(row, 2, QTableWidgetItem(""))   # Ghi chú
+            # sp = (id, ten, gia_le, gia_buon, gia_vip, ton_kho, nguong_buon)
+            ten = sp[1]
+            ton_db = sp[5] if len(sp) > 5 and sp[5] is not None else 0
+            self.tbl_nhan_hang.setItem(row, 0, QTableWidgetItem(ten))
+            # Prefill counted quantity with system stock to make counting easier
+            self.tbl_nhan_hang.setItem(row, 1, QTableWidgetItem(str(ton_db)))
+            # Show system stock
+            self.tbl_nhan_hang.setItem(row, 2, QTableWidgetItem(str(ton_db)))
+            # Chênh lệch = counted - system (start at 0)
+            self.tbl_nhan_hang.setItem(row, 3, QTableWidgetItem(str(0)))
+            # Ghi chú
+            self.tbl_nhan_hang.setItem(row, 4, QTableWidgetItem(""))
+
+        # If we have an in-memory available_products baseline, show that in counted column
+        for row in range(self.tbl_nhan_hang.rowCount()):
+            ten_item = self.tbl_nhan_hang.item(row, 0)
+            if ten_item:
+                ten = ten_item.text()
+                qty = self.available_products.get(ten, None)
+                if qty is not None:
+                    self.tbl_nhan_hang.setItem(row, 1, QTableWidgetItem(str(qty)))
 
     def xac_nhan_nhan_hang(self):
         from datetime import datetime
-        nhan_hang_data = []
-        for row in range(self.tbl_nhan_hang.rowCount()):
-            ten_sp = self.tbl_nhan_hang.item(row, 0).text()
-            try:
-                sl_nhan = float(self.tbl_nhan_hang.item(row, 1).text())
-            except:
-                sl_nhan = 0
-            ghi_chu = self.tbl_nhan_hang.item(row, 2).text()
-            nhan_hang_data.append((self.user_id, ten_sp, sl_nhan, ghi_chu, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-        # Lưu vào DB hoặc file (tạm thời lưu file csv)
-        import csv
-        filename = f"nhan_hang_{self.user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-        with open(filename, "w", newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            writer.writerow(["user_id", "ten_sp", "so_luong_nhan", "ghi_chu", "thoi_gian"])
-            writer.writerows(nhan_hang_data)
-        QMessageBox.information(self, "Thành công", f"Đã lưu nhận hàng vào file {filename}")
 
-        # Đảm bảo cửa sổ được hiển thị đúng cách
+        nhan_hang_data = []
+        discrepancies = []
+        for row in range(self.tbl_nhan_hang.rowCount()):
+            ten_item = self.tbl_nhan_hang.item(row, 0)
+            if not ten_item:
+                continue
+            ten_sp = ten_item.text()
+            try:
+                sl_dem = float(self.tbl_nhan_hang.item(row, 1).text())
+            except Exception:
+                sl_dem = 0
+            try:
+                ton_db = float(self.tbl_nhan_hang.item(row, 2).text())
+            except Exception:
+                ton_db = 0
+            ghi_chu = (
+                self.tbl_nhan_hang.item(row, 4).text()
+                if self.tbl_nhan_hang.item(row, 4)
+                else ""
+            )
+            chenh = sl_dem - ton_db
+            # update chênh lệch cell
+            # show integer when whole number
+            if float(chenh).is_integer():
+                ch_text = str(int(chenh))
+            else:
+                ch_text = str(chenh)
+            self.tbl_nhan_hang.setItem(row, 3, QTableWidgetItem(ch_text))
+            nhan_hang_data.append(
+                (
+                    self.user_id,
+                    ten_sp,
+                    sl_dem,
+                    ton_db,
+                    chenh,
+                    ghi_chu,
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                )
+            )
+            if abs(chenh) >= 1e-9 and chenh != 0:
+                status = "DƯ" if chenh > 0 else "THIẾU"
+                discrepancies.append((ten_sp, chenh, status))
+
+        # Save the check/receive report to CSV for audit
+        import csv
+
+        filename = (
+            f"nhan_hang_{self.user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        )
+        with open(filename, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(
+                [
+                    "user_id",
+                    "ten_sp",
+                    "so_luong_dem",
+                    "ton_db",
+                    "chenh_lech",
+                    "ghi_chu",
+                    "thoi_gian",
+                ]
+            )
+            writer.writerows(nhan_hang_data)
+
+        # Report results to user
+        if discrepancies:
+            # Build a detailed dialog to allow user to select which discrepancies to apply
+            dlg = QDialog(self)
+            dlg.setWindowTitle("Xác nhận chênh lệch kho")
+            dlg.resize(800, 400)
+            dlg_layout = QVBoxLayout()
+            info_lbl = QLabel(
+                f"Phát hiện chênh lệch ({len(discrepancies)} sản phẩm). Chọn những mục muốn áp vào kho và nhập lý do (bắt buộc khi có chênh lệch)."
+            )
+            dlg_layout.addWidget(info_lbl)
+
+            tbl = QTableWidget()
+            tbl.setColumnCount(5)
+            tbl.setHorizontalHeaderLabels(
+                [
+                    "Chọn",
+                    "Sản phẩm",
+                    "Tồn hệ thống",
+                    "Chênh lệch",
+                    "Ghi chú lý do (bắt buộc)",
+                ]
+            )
+            tbl.setRowCount(len(discrepancies))
+            for i, (ten_sp, chenh, status) in enumerate(discrepancies):
+                chk = QTableWidgetItem()
+                chk.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+                chk.setCheckState(Qt.Checked)
+                tbl.setItem(i, 0, chk)
+                tbl.setItem(i, 1, QTableWidgetItem(ten_sp))
+                # find ton_db from nhan_hang_data
+                ton_db = 0
+                for rec in nhan_hang_data:
+                    if rec[1] == ten_sp:
+                        ton_db = rec[3]
+                        break
+                # show ton system
+                tbl.setItem(i, 2, QTableWidgetItem(str(ton_db)))
+                tbl.setItem(
+                    i,
+                    3,
+                    QTableWidgetItem(
+                        str(int(chenh) if float(chenh).is_integer() else chenh)
+                    ),
+                )
+                # Reason (mandatory)
+                tbl.setItem(i, 4, QTableWidgetItem(""))
+
+            tbl.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+            dlg_layout.addWidget(tbl)
+
+            btns = QHBoxLayout()
+            apply_btn = QPushButton("Áp chênh lệch vào kho")
+            cancel_btn = QPushButton("Hủy")
+            btns.addWidget(apply_btn)
+            btns.addWidget(cancel_btn)
+            dlg_layout.addLayout(btns)
+            dlg.setLayout(dlg_layout)
+
+            def on_cancel():
+                dlg.reject()
+
+            def on_apply():
+                # Collect selected rows and ensure reasons provided
+                to_apply = []  # list of (ten_sp, chenh, reason)
+                for r in range(tbl.rowCount()):
+                    item_chk = tbl.item(r, 0)
+                    if item_chk and item_chk.checkState() == Qt.Checked:
+                        ten = tbl.item(r, 1).text()
+                        ch = float(tbl.item(r, 3).text())
+                        reason_item = tbl.item(r, 4)
+                        reason = reason_item.text().strip() if reason_item else ""
+                        if not reason:
+                            QMessageBox.warning(
+                                dlg,
+                                "Lỗi",
+                                f"Vui lòng nhập lý do cho sản phẩm {ten} trước khi áp.",
+                            )
+                            return
+                        to_apply.append((ten, ch, reason))
+
+                if not to_apply:
+                    QMessageBox.information(
+                        dlg, "Thông báo", "Không có mục nào được chọn để áp."
+                    )
+                    return
+
+                # Apply changes to DB: update SanPham.ton_kho = counted (ton_sau), insert into LogKho and ChenhLech
+                conn = ket_noi()
+                c = conn.cursor()
+                try:
+                    for ten, ch, reason in to_apply:
+                        # Get product id and current stock
+                        c.execute(
+                            "SELECT id, ton_kho FROM SanPham WHERE ten = ?", (ten,)
+                        )
+                        row = c.fetchone()
+                        if not row:
+                            QMessageBox.warning(
+                                dlg, "Lỗi", f"Không tìm thấy sản phẩm {ten} trong DB"
+                            )
+                            conn.rollback()
+                            return
+                        sp_id, ton_truoc = row
+                        # Find counted qty from nhan_hang_data
+                        counted = None
+                        for rec in nhan_hang_data:
+                            if rec[1] == ten:
+                                counted = rec[2]
+                                break
+                        if counted is None:
+                            counted = ton_truoc + ch
+
+                        ton_sau = counted
+
+                        # Update SanPham.ton_kho
+                        c.execute(
+                            "UPDATE SanPham SET ton_kho = ? WHERE id = ?",
+                            (ton_sau, sp_id),
+                        )
+
+                        # Insert into LogKho (hanh_dong = 'kiemke')
+                        ngay = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        c.execute(
+                            "INSERT INTO LogKho (sanpham_id, user_id, ngay, hanh_dong, so_luong, ton_truoc, ton_sau, gia_ap_dung, chenh_lech_cong_doan) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                            (
+                                sp_id,
+                                self.user_id,
+                                ngay,
+                                "kiemke",
+                                ch,
+                                ton_truoc,
+                                ton_sau,
+                                0,
+                                ch,
+                            ),
+                        )
+
+                        # Insert into ChenhLech table
+                        c.execute(
+                            "INSERT INTO ChenhLech (sanpham_id, user_id, ngay, chenh, ton_truoc, ton_sau, ghi_chu) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                            (sp_id, self.user_id, ngay, ch, ton_truoc, ton_sau, reason),
+                        )
+
+                    conn.commit()
+                except Exception as e:
+                    conn.rollback()
+                    QMessageBox.warning(dlg, "Lỗi", f"Lỗi khi cập nhật DB: {e}")
+                    conn.close()
+                    return
+                conn.close()
+
+                # Update in-memory baseline
+                for ten, ch, reason in to_apply:
+                    # set available_products to new counted value
+                    # find counted
+                    counted = None
+                    for rec in nhan_hang_data:
+                        if rec[1] == ten:
+                            counted = rec[2]
+                            break
+                    if counted is None:
+                        counted = 0
+                    self.available_products[ten] = counted
+
+                self.cap_nhat_completer_sanpham()
+                QMessageBox.information(
+                    dlg, "Thành công", "Đã áp chênh lệch vào kho và ghi log."
+                )
+                dlg.accept()
+
+            apply_btn.clicked.connect(on_apply)
+            cancel_btn.clicked.connect(on_cancel)
+
+            dialog_result = dlg.exec_()
+            if dialog_result != QDialog.Accepted:
+                # User cancelled — do not proceed with receiving
+                QMessageBox.information(
+                    self,
+                    "Hủy nhận hàng",
+                    "Bạn đã hủy. Vui lòng sửa số liệu và nhấn 'Xác nhận nhận hàng' lại.",
+                )
+                return
+        else:
+            QMessageBox.information(
+                self, "Kiểm kê", "Không có chênh lệch. Đã lưu kết quả kiểm kê."
+            )
+
+        # Update in-memory available_products based on counted quantities so selling uses counted baseline
+        for rec in nhan_hang_data:
+            _, ten_sp, sl_dem, ton_db, chenh, ghi_chu, thoi_gian = rec
+            try:
+                q = float(sl_dem)
+            except Exception:
+                q = 0
+            self.available_products[ten_sp] = q
+
+        # Refresh completer used in Bán hàng
+        self.cap_nhat_completer_sanpham()
+
+        # Mark receiving as completed and disable the tab
+        self.nhan_hang_completed = True
+        self.tab_nhan_hang.setEnabled(False)
+        # Enable the 'Lưu' button in Bán hàng so user can save/create invoices
+        try:
+            self.btn_luu.setEnabled(True)
+        except Exception:
+            pass
+        QMessageBox.information(
+            self,
+            "Thành công",
+            "Đã nhận hàng thành công. Tab Nhận hàng sẽ bị khóa cho đến khi đóng ca.",
+        )
+
         self.show()
 
     def setup_table(self, table_widget):
@@ -282,12 +590,21 @@ class MainWindow(QWidget):
         table_widget.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
     def tao_completer_sanpham(self):
-        """Tạo QCompleter cho tên sản phẩm (tái sử dụng)"""
+        """Tạo QCompleter cho tên sản phẩm (tái sử dụng).
+
+        If available_only is True, only return names present in self.available_products
+        with quantity > 0. Otherwise return the full product name list from DB.
+        """
+
+        def _make(names):
+            comp = QCompleter(names, self)
+            comp.setCaseSensitivity(Qt.CaseInsensitive)
+            comp.setFilterMode(Qt.MatchContains)
+            return comp
+
+        # Default: full list
         ten_sanpham_list = lay_danh_sach_ten_sanpham()
-        completer = QCompleter(ten_sanpham_list, self)
-        completer.setCaseSensitivity(Qt.CaseInsensitive)
-        completer.setFilterMode(Qt.MatchContains)
-        return completer
+        return _make(ten_sanpham_list)
 
     def cap_nhat_completer_sanpham(self):
         """Cập nhật lại completer cho tất cả các bảng sau khi thêm/xóa sản phẩm"""
@@ -295,7 +612,19 @@ class MainWindow(QWidget):
         if hasattr(self, "tbl_giohang"):
             delegate = self.tbl_giohang.itemDelegateForColumn(0)
             if isinstance(delegate, CompleterDelegate):
-                delegate.completer = self.tao_completer_sanpham()
+                # Build a completer that only suggests products that are available
+                # for sale (received quantity > 0). If no received products yet,
+                # provide an empty completer so no suggestions appear.
+                available_names = [
+                    name for name, qty in self.available_products.items() if qty > 0
+                ]
+                if available_names:
+                    comp = QCompleter(available_names, self)
+                    comp.setCaseSensitivity(Qt.CaseInsensitive)
+                    comp.setFilterMode(Qt.MatchContains)
+                    delegate.completer = comp
+                else:
+                    delegate.completer = QCompleter([], self)
 
     def init_tab_sanpham(self):
         layout = QVBoxLayout()
@@ -327,6 +656,203 @@ class MainWindow(QWidget):
         self.load_sanpham()
         self.tab_sanpham.setLayout(layout)
 
+    def init_tab_chenhlech(self):
+        layout = QVBoxLayout()
+
+        # Filters
+        fl = QHBoxLayout()
+        fl.addWidget(QLabel("Từ ngày:"))
+        self.chenh_tu = QDateEdit()
+        self.chenh_tu.setCalendarPopup(True)
+        self.chenh_tu.setDate(QDate.currentDate().addMonths(-1))
+        fl.addWidget(self.chenh_tu)
+        fl.addWidget(QLabel("Đến ngày:"))
+        self.chenh_den = QDateEdit()
+        self.chenh_den.setCalendarPopup(True)
+        self.chenh_den.setDate(QDate.currentDate())
+        fl.addWidget(self.chenh_den)
+        btn_load = QPushButton("Tải dữ liệu")
+        btn_load.clicked.connect(self.load_chenhlech)
+        fl.addWidget(btn_load)
+        fl.addStretch()
+        layout.addLayout(fl)
+
+        self.tbl_chenhlech = QTableWidget()
+        self.tbl_chenhlech.setColumnCount(7)
+        self.tbl_chenhlech.setHorizontalHeaderLabels(
+            ["Ngày", "Sản phẩm", "Chênh", "Tồn trước", "Tồn sau", "Ghi chú", "Xử lý"]
+        )
+        self.setup_table(self.tbl_chenhlech)
+        layout.addWidget(self.tbl_chenhlech)
+
+        # Thêm nút xử lý chênh lệch
+        btn_xu_ly_chenh = QPushButton("Xử lý chênh lệch")
+        btn_xu_ly_chenh.clicked.connect(self.xu_ly_chenh_lech_click)
+        layout.addWidget(btn_xu_ly_chenh)
+
+        self.tab_chenhlech.setLayout(layout)
+        self.load_chenhlech()
+
+    def load_chenhlech(self):
+        try:
+            conn = ket_noi()
+            c = conn.cursor()
+            tu = self.chenh_tu.date().toString("yyyy-MM-dd")
+            den = self.chenh_den.date().toString("yyyy-MM-dd")
+            sql = "SELECT cl.ngay, s.ten, cl.chenh, cl.ton_truoc, cl.ton_sau, cl.ghi_chu FROM ChenhLech cl JOIN SanPham s ON cl.sanpham_id = s.id WHERE date(cl.ngay) >= ? AND date(cl.ngay) <= ? ORDER BY cl.ngay DESC"
+            c.execute(sql, (tu, den))
+            rows = c.fetchall()
+            self.tbl_chenhlech.setRowCount(len(rows))
+            for i, r in enumerate(rows):
+                for j, v in enumerate(r):
+                    self.tbl_chenhlech.setItem(i, j, QTableWidgetItem(str(v)))
+                # Thêm checkbox vào cột xử lý
+                chk_item = QTableWidgetItem()
+                chk_item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+                chk_item.setCheckState(Qt.Unchecked)
+                self.tbl_chenhlech.setItem(i, 6, chk_item)
+        except Exception as e:
+            QMessageBox.warning(self, "Lỗi", f"Lỗi tải chênh lệch: {e}")
+        finally:
+            conn.close()
+
+    def xu_ly_chenh_lech_click(self):
+        # Lấy các dòng được chọn (checkbox checked)
+        selected_rows = []
+        for row in range(self.tbl_chenhlech.rowCount()):
+            chk_item = self.tbl_chenhlech.item(row, 6)
+            if chk_item and chk_item.checkState() == Qt.Checked:
+                selected_rows.append(row)
+        
+        if not selected_rows:
+            QMessageBox.warning(self, "Lỗi", "Vui lòng chọn ít nhất một dòng chênh lệch để xử lý")
+            return
+        
+        # Tạo dialog để chọn loại xử lý
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Xử lý chênh lệch")
+        layout = QVBoxLayout()
+        
+        xu_ly_label = QLabel("Chọn loại xử lý:")
+        layout.addWidget(xu_ly_label)
+        xu_ly_combo = QComboBox()
+        xu_ly_combo.addItem("Bán bổ sung (nộp tiền)")
+        xu_ly_combo.addItem("Trả lại tiền")
+        xu_ly_combo.addItem("Thay thế hàng")
+        xu_ly_combo.addItem("Coi như đã bán")
+        layout.addWidget(xu_ly_combo)
+        
+        user_label = QLabel("Chọn user:")
+        user_combo = QComboBox()
+        from users import lay_tat_ca_user
+        users = lay_tat_ca_user()
+        for user in users:
+            if user[2] == "Accountant":  # user[2] là role
+                user_combo.addItem(f"{user[1]} (ID: {user[0]})", user[0])
+        layout.addWidget(user_label)
+        layout.addWidget(user_combo)
+        
+        money_label = QLabel("Nhập số tiền:")
+        money_edit = QLineEdit()
+        money_edit.setValidator(QDoubleValidator())
+        layout.addWidget(money_label)
+        layout.addWidget(money_edit)
+        
+        # Ẩn/hiện user selector và money input dựa trên loại xử lý
+        def on_xu_ly_changed(index):
+            if index == 1:  # Trả lại tiền
+                user_label.setVisible(True)
+                user_combo.setVisible(True)
+                money_label.setVisible(True)
+                money_edit.setVisible(True)
+            else:
+                user_label.setVisible(False)
+                user_combo.setVisible(False)
+                money_label.setVisible(False)
+                money_edit.setVisible(False)
+        
+        xu_ly_combo.currentIndexChanged.connect(on_xu_ly_changed)
+        on_xu_ly_changed(0)  # Set initial visibility
+        
+        btn_ok = QPushButton("Xác nhận")
+        btn_ok.clicked.connect(dialog.accept)
+        layout.addWidget(btn_ok)
+        
+        dialog.setLayout(layout)
+        
+        if dialog.exec_() != QDialog.Accepted:
+            return
+        
+        xu_ly_type = xu_ly_combo.currentIndex()
+        
+        # Xử lý từng dòng được chọn
+        try:
+            conn = ket_noi()
+            c = conn.cursor()
+            
+            for row in selected_rows:
+                ngay = self.tbl_chenhlech.item(row, 0).text()
+                ten_sp = self.tbl_chenhlech.item(row, 1).text()
+                chenh = float(self.tbl_chenhlech.item(row, 2).text())
+                
+                # Lấy thông tin sản phẩm
+                from products import tim_sanpham
+                sp = tim_sanpham(ten_sp)
+                if not sp:
+                    continue
+                sp = sp[0]
+                gia_le = sp[2]
+                
+                if xu_ly_type == 0:  # Bán bổ sung (nộp tiền)
+                    # Cộng tiền vào số dư user
+                    so_tien = abs(chenh) * gia_le
+                    from users import chuyen_tien
+                    from datetime import datetime
+                    chuyen_tien(self.user_id, self.user_id, so_tien, f"Bán bổ sung - {ten_sp}")
+                    
+                elif xu_ly_type == 1:  # Trả lại tiền
+                    # Trừ tiền từ accountant
+                    accountant_id = user_combo.currentData()
+                    so_tien_str = money_edit.text()
+                    if not so_tien_str:
+                        QMessageBox.warning(self, "Lỗi", "Vui lòng nhập số tiền")
+                        continue
+                    so_tien = float(so_tien_str)
+                    
+                    # Trừ tiền từ accountant
+                    c.execute("UPDATE Users SET so_du = so_du - ? WHERE id = ?", (so_tien, accountant_id))
+                    # Ghi log vào GiaoDichQuy
+                    from datetime import datetime
+                    c.execute(
+                        "INSERT INTO GiaoDichQuy (user_id, user_nhan_id, so_tien, ngay, ghi_chu) VALUES (?, NULL, ?, ?, ?)",
+                        (accountant_id, so_tien, datetime.now().isoformat(), f"Trả lại tiền - {ten_sp}")
+                    )
+                    
+                elif xu_ly_type == 2:  # Thay thế hàng
+                    # Không làm gì với tiền, chỉ ghi nhận
+                    pass
+                    
+                elif xu_ly_type == 3:  # Coi như đã bán
+                    # Không làm gì
+                    pass
+                
+                # Xóa dòng chênh lệch khỏi DB
+                c.execute("DELETE FROM ChenhLech WHERE ngay = ? AND sanpham_id = (SELECT id FROM SanPham WHERE ten = ?)", (ngay, ten_sp))
+            
+            conn.commit()
+            conn.close()
+            
+            QMessageBox.information(self, "Thành công", f"Đã xử lý {len(selected_rows)} dòng chênh lệch")
+            # Reload bảng và xóa các dòng đã xử lý khỏi UI
+            self.load_chenhlech()
+            
+        except Exception as e:
+            QMessageBox.warning(self, "Lỗi", f"Lỗi xử lý chênh lệch: {e}")
+            try:
+                conn.close()
+            except:
+                pass
+
     def init_tab_banhang(self):
         layout = QVBoxLayout()
 
@@ -346,14 +872,22 @@ class MainWindow(QWidget):
         self.tbl_giohang.itemChanged.connect(self.update_giohang)
         layout.addWidget(self.tbl_giohang)
 
-        # Nút thêm dòng và tạo hóa đơn
+        # Nút thêm dòng và Lưu (trước đây là 'Tạo hóa đơn')
         btn_layout = QHBoxLayout()
         btn_them_dong = QPushButton("Thêm dòng")
         btn_them_dong.clicked.connect(self.them_dong_giohang)
         btn_layout.addWidget(btn_them_dong)
-        btn_tao_hd = QPushButton("Tạo hóa đơn")
-        btn_tao_hd.clicked.connect(self.tao_hoa_don_click)
-        btn_layout.addWidget(btn_tao_hd)
+        # Rename button to 'Lưu' to avoid confusion. Start disabled until nhận hàng xong.
+        self.btn_luu = QPushButton("Lưu")
+        self.btn_luu.setEnabled(False)
+        self.btn_luu.clicked.connect(self.tao_hoa_don_click)
+        btn_layout.addWidget(self.btn_luu)
+
+        # Button to close shift (preview and print) - placed in Bán hàng so it's accessible when Nhận hàng is locked
+        btn_close_shift = QPushButton("Đóng ca (In tổng kết)")
+        btn_close_shift.clicked.connect(self.dong_ca_in_pdf)
+        btn_layout.addWidget(btn_close_shift)
+
         layout.addLayout(btn_layout)
 
         self.tab_banhang.setLayout(layout)
@@ -451,9 +985,30 @@ class MainWindow(QWidget):
                     self.tbl_giohang.itemChanged.connect(self.update_giohang)
                     return  # Không làm gì nếu dữ liệu giá không hợp lệ
             else:
+                # Product not found in DB
                 print(f"Sản phẩm '{ten}' không tồn tại")  # Debug
+                QMessageBox.warning(self, "Lỗi", f"Sản phẩm '{ten}' không tồn tại")
                 self.tbl_giohang.setItem(row, 2, QTableWidgetItem(format_price(0)))
                 don_gia = 0
+                # Clear name to avoid creating invalid invoice
+                self.tbl_giohang.setItem(row, 0, QTableWidgetItem(""))
+                self.tbl_giohang.itemChanged.connect(self.update_giohang)
+                return
+
+        # Check availability: product must have been received
+        if ten:
+            avail_qty = self.available_products.get(ten, 0)
+            if avail_qty <= 0:
+                QMessageBox.warning(
+                    self,
+                    "Lỗi",
+                    f"Sản phẩm '{ten}' chưa được nhận hàng nên không thể bán",
+                )
+                # reset name and price
+                self.tbl_giohang.setItem(row, 0, QTableWidgetItem(""))
+                self.tbl_giohang.setItem(row, 2, QTableWidgetItem(format_price(0)))
+                self.tbl_giohang.itemChanged.connect(self.update_giohang)
+                return
 
         # Tính Tổng tiền
         try:
@@ -548,9 +1103,46 @@ class MainWindow(QWidget):
             QMessageBox.warning(self, "Lỗi", msg)
             return
 
+        # Deduct sold quantities from available_products
+        for it in items:
+            try:
+                # find product name by id
+                from products import tim_sanpham_by_id
+
+                # fallback: try lookup by id via DB select
+                # We will attempt to get name from DB via tim_sanpham (which accepts name),
+                # so instead query all and match id.
+                conn = ket_noi()
+                c = conn.cursor()
+                c.execute("SELECT ten FROM SanPham WHERE id=?", (it["sanpham_id"],))
+                row = c.fetchone()
+                if row:
+                    name = row[0]
+                else:
+                    name = None
+            except Exception:
+                name = None
+
+            if name:
+                prev = self.available_products.get(name, 0)
+                new = prev - it["so_luong"]
+                if new < 0:
+                    new = 0
+                self.available_products[name] = new
+
+        # refresh completers after sale
+        self.cap_nhat_completer_sanpham()
+
         QMessageBox.information(
             self, "Thành công", f"Tạo hóa đơn thành công, ID: {msg}"
         )
+
+        # Lưu lại ID hóa đơn mới nhất
+        try:
+            self.last_invoice_id = int(msg)
+        except:
+            self.last_invoice_id = None
+
         self.tbl_giohang.setRowCount(0)
         for _ in range(15):
             self.them_dong_giohang()
@@ -833,15 +1425,17 @@ class MainWindow(QWidget):
             user_id_from = int(self.tbl_chitietban.item(row, 1).text())
         except Exception:
             user_id_from = None
-        username_from = self.tbl_chitietban.item(row, 2).text() if self.tbl_chitietban.item(row, 2) else ""
+        username_from = (
+            self.tbl_chitietban.item(row, 2).text()
+            if self.tbl_chitietban.item(row, 2)
+            else ""
+        )
 
         # Tính số dư hiện tại từ DB: unpaid_total - paid
         from users import lay_tong_nop_theo_hoadon
 
         chi_tiet = lay_chi_tiet_hoadon(hoadon_id)
-        unpaid_total = sum(
-            (r[4] * r[6] - r[9]) for r in chi_tiet if r[7] == 0
-        )
+        unpaid_total = sum((r[4] * r[6] - r[9]) for r in chi_tiet if r[7] == 0)
         try:
             paid = lay_tong_nop_theo_hoadon(hoadon_id)
         except Exception:
@@ -940,7 +1534,14 @@ class MainWindow(QWidget):
         self.lbl_tong_to_nop_tien.setText(f"Tổng từ tờ: {format_price(tong)}")
 
     def xac_nhan_nop_tien(
-        self, user_id_from, accountant_id, so_tien_str, so_du_hien_tai, dialog, row, hoadon_id=None
+        self,
+        user_id_from,
+        accountant_id,
+        so_tien_str,
+        so_du_hien_tai,
+        dialog,
+        row,
+        hoadon_id=None,
     ):
         """Xác nhận nộp tiền"""
         try:
@@ -1231,76 +1832,86 @@ class MainWindow(QWidget):
 
     def init_tab_baocao(self):
         layout = QVBoxLayout()
-        
+
         # Tab widget để phân tách báo cáo kho và biểu đồ
         tab_widget = QTabWidget()
-        
+
         # Tab báo cáo kho
         tab_kho = QWidget()
         kho_layout = QVBoxLayout()
-        
+
         # Nút làm mới báo cáo kho
         btn_kho = QPushButton("Làm mới báo cáo kho")
         btn_kho.clicked.connect(self.xem_bao_cao_kho)
         kho_layout.addWidget(btn_kho)
-        
+
         # Bảng báo cáo kho
         self.tbl_baocao_kho = QTableWidget()
-        self.tbl_baocao_kho.setColumnCount(6)
-        self.tbl_baocao_kho.setHorizontalHeaderLabels([
-            "Tên sản phẩm", "Tồn kho", "Số lượng XHĐ", 
-            "Số lượng xuất bổ", "Số lượng chưa xuất", "Trạng thái"
-        ])
+        # Columns order: Tên, Tồn kho, Số lượng XHĐ, Số lượng xuất bổ, Số lượng chưa xuất, SYS, Trạng thái
+        self.tbl_baocao_kho.setColumnCount(7)
+        self.tbl_baocao_kho.setHorizontalHeaderLabels(
+            [
+                "Tên sản phẩm",
+                "Tồn kho",
+                "Số lượng XHĐ",
+                "Số lượng xuất bổ",
+                "Số lượng chưa xuất",
+                "SYS",
+                "Trạng thái",
+            ]
+        )
         # Thiết lập màu nền cho header
         self.tbl_baocao_kho.horizontalHeader().setStyleSheet(
             "QHeaderView::section { background-color: #D1E7FF; }"
         )
         self.setup_table(self.tbl_baocao_kho)
         kho_layout.addWidget(self.tbl_baocao_kho)
-        
+
         tab_kho.setLayout(kho_layout)
         tab_widget.addTab(tab_kho, "Báo cáo kho")
 
         # Tab biểu đồ sản lượng
         tab_bieudo = QWidget()
         bieudo_layout = QVBoxLayout()
-        
+
         # Controls cho biểu đồ
         filter_layout = QHBoxLayout()
-        
+
         # Lọc theo năm
         filter_layout.addWidget(QLabel("Năm:"))
         self.bieudo_year = QComboBox()
         current_year = QDate.currentDate().year()
-        self.bieudo_year.addItems([str(year) for year in range(current_year-5, current_year+1)])
+        self.bieudo_year.addItems(
+            [str(year) for year in range(current_year - 5, current_year + 1)]
+        )
         self.bieudo_year.setCurrentText(str(current_year))
         filter_layout.addWidget(self.bieudo_year)
-        
+
         # Lọc theo tháng
         filter_layout.addWidget(QLabel("Tháng:"))
         self.bieudo_month = QComboBox()
-        self.bieudo_month.addItems(['Tất cả'] + [str(m) for m in range(1, 13)])
+        self.bieudo_month.addItems(["Tất cả"] + [str(m) for m in range(1, 13)])
         filter_layout.addWidget(self.bieudo_month)
-        
+
         # Nút cập nhật biểu đồ
         btn_update = QPushButton("Cập nhật biểu đồ")
         btn_update.clicked.connect(self.cap_nhat_bieu_do)
         filter_layout.addWidget(btn_update)
-        
+
         filter_layout.addStretch()
         bieudo_layout.addLayout(filter_layout)
-        
+
         # Widget để chứa biểu đồ matplotlib
         from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
         from matplotlib.figure import Figure
-        
+
         self.figure = Figure()
         self.canvas = FigureCanvasQTAgg(self.figure)
         bieudo_layout.addWidget(self.canvas)
-        
+
         tab_bieudo.setLayout(bieudo_layout)
         tab_widget.addTab(tab_bieudo, "Biểu đồ sản lượng")
-        
+
         layout.addWidget(tab_widget)
         self.tab_baocao.setLayout(layout)
 
@@ -1308,58 +1919,120 @@ class MainWindow(QWidget):
         try:
             conn = ket_noi()
             c = conn.cursor()
-            
+
             # Lấy danh sách sản phẩm với tồn kho và ngưỡng buôn
-            c.execute("SELECT id, ten, ton_kho, gia_buon, nguong_buon FROM SanPham ORDER BY ten")
+            c.execute(
+                "SELECT id, ten, ton_kho, gia_buon, nguong_buon FROM SanPham ORDER BY ten"
+            )
             san_pham_list = c.fetchall()
-            
+
             # Chuẩn bị data cho bảng
             table_data = []
             for sp in san_pham_list:
                 sp_id, ten, ton_kho, _, nguong_buon = sp
-                
+
                 # Lấy số lượng đã xuất hóa đơn
-                c.execute("""
+                c.execute(
+                    """
                     SELECT COALESCE(SUM(so_luong), 0)
                     FROM ChiTietHoaDon 
                     WHERE sanpham_id = ? AND xuat_hoa_don = 1
-                """, (sp_id,))
+                """,
+                    (sp_id,),
+                )
                 sl_xhd = c.fetchone()[0] or 0
-                
+
                 # Lấy số lượng đã xuất bổ
-                c.execute("""
+                c.execute(
+                    """
                     SELECT COALESCE(SUM(so_luong), 0)
                     FROM LogKho 
                     WHERE sanpham_id = ? AND hanh_dong = 'xuat'
-                """, (sp_id,))
+                """,
+                    (sp_id,),
+                )
                 sl_xuat_bo = c.fetchone()[0] or 0
-                
+
                 # Lấy số lượng chưa xuất
-                c.execute("""
+                c.execute(
+                    """
                     SELECT COALESCE(SUM(so_luong), 0)
                     FROM ChiTietHoaDon 
                     WHERE sanpham_id = ? AND xuat_hoa_don = 0
-                """, (sp_id,))
+                """,
+                    (sp_id,),
+                )
                 sl_chua_xuat = c.fetchone()[0] or 0
-                
+
+                # SYS = tồn kho hiện tại + số lượng chưa xuất hóa đơn
+                # (theo yêu cầu: SYS = kho + số lượng chưa xuất hóa đơn)
+                try:
+                    sys_val = (ton_kho or 0) + (sl_chua_xuat or 0)
+                except Exception:
+                    sys_val = 0
+
                 # Kiểm tra trạng thái tồn kho vs ngưỡng buôn
                 trang_thai = ""
+                if ton_kho is None:
+                    ton_kho = 0
+                if nguong_buon is None:
+                    nguong_buon = 0
                 if ton_kho < nguong_buon:
                     trang_thai = "⚠️ Dưới ngưỡng buôn"
-                
-                table_data.append([
-                    ten, ton_kho, sl_xhd, sl_xuat_bo, sl_chua_xuat, trang_thai
-                ])
-            
+
+                # Build row in the chosen column order (see header)
+                table_data.append(
+                    [
+                        ten,
+                        ton_kho,
+                        sl_xhd,
+                        sl_xuat_bo,
+                        sl_chua_xuat,
+                        sys_val,
+                        trang_thai,
+                    ]
+                )
+
+                # Debug print to console so you can verify values easily
+                try:
+                    print(
+                        f"BAOCAOKHO: {ten} | ton_kho={ton_kho} | sl_xhd={sl_xhd} | sl_xuat_bo={sl_xuat_bo} | sl_chua_xuat={sl_chua_xuat} | SYS={sys_val}"
+                    )
+                except Exception:
+                    pass
+
             # Hiển thị dữ liệu
             self.tbl_baocao_kho.setRowCount(len(table_data))
             for row_idx, row_data in enumerate(table_data):
                 for col_idx, val in enumerate(row_data):
-                    item = QTableWidgetItem(str(val))
-                    if col_idx == 5 and val:  # Cột trạng thái
-                        item.setBackground(Qt.yellow)  # Highlight cảnh báo
+                    # Format numeric values for readability
+                    if col_idx in [1, 2, 3, 4, 5]:
+                        # these are numeric: Tồn kho, Số lượng XHĐ, Số lượng xuất bổ, Số lượng chưa xuất, SYS
+                        try:
+                            txt = format_price(float(val))
+                        except Exception:
+                            txt = str(val)
+                        item = QTableWidgetItem(txt)
+                        item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                    else:
+                        item = QTableWidgetItem(str(val))
+
+                    # Highlight important columns: Số lượng chưa xuất (index 4) and SYS (index 5)
+                    try:
+                        if col_idx == 4 and float(row_data[4]) > 0:
+                            item.setBackground(Qt.yellow)
+                        if col_idx == 5:
+                            item.setBackground(Qt.lightGray)
+                    except Exception:
+                        pass
+
+                    # Trang thái nằm ở cột cuối (index 6)
+                    if col_idx == 6 and row_data[6]:
+                        # If there's a warning string, also color it
+                        item.setBackground(Qt.yellow)
+
                     self.tbl_baocao_kho.setItem(row_idx, col_idx, item)
-                    
+
         except Exception as e:
             QMessageBox.warning(self, "Lỗi", f"Lỗi truy vấn dữ liệu: {str(e)}")
         finally:
@@ -1369,17 +2042,17 @@ class MainWindow(QWidget):
         try:
             conn = ket_noi()
             c = conn.cursor()
-            
+
             nam = int(self.bieudo_year.currentText())
             thang = self.bieudo_month.currentText()
-            
+
             # Xây dựng query với điều kiện lọc
             params = []
             date_filter = ""
             if thang != "Tất cả":
                 date_filter = "AND strftime('%m', h.ngay) = ?"
                 params.append(thang.zfill(2))
-            
+
             # Query lấy sản lượng theo sản phẩm và thời gian
             sql = f"""
                 SELECT 
@@ -1395,14 +2068,14 @@ class MainWindow(QWidget):
                 ORDER BY s.ten, thang
             """
             params.insert(0, str(nam))
-            
+
             c.execute(sql, params)
             data = c.fetchall()
-            
+
             # Chuẩn bị data cho biểu đồ
             products = sorted(list(set(row[0] for row in data)))
             months = sorted(list(set(row[1] for row in data)))
-            
+
             # Tạo ma trận sản lượng
             quantities = {}
             for p in products:
@@ -1411,30 +2084,32 @@ class MainWindow(QWidget):
                     if row[0] == p:
                         idx = months.index(row[1])
                         quantities[p][idx] = row[2]
-            
+
             # Vẽ biểu đồ
             self.figure.clear()
             ax = self.figure.add_subplot(111)
-            
+
             x = range(len(months))
             width = 0.8 / len(products)
-            
+
             for i, (product, qty) in enumerate(quantities.items()):
-                ax.bar([xi + i*width for xi in x], qty, width, label=product)
-            
-            ax.set_xticks([xi + (len(products)-1)*width/2 for xi in x])
-            ax.set_xticklabels([f'Tháng {m}' for m in months])
-            
-            ax.set_ylabel('Sản lượng')
-            ax.set_title(f'Sản lượng theo sản phẩm năm {nam}' + 
-                        (f' - Tháng {thang}' if thang != 'Tất cả' else ''))
-            
+                ax.bar([xi + i * width for xi in x], qty, width, label=product)
+
+            ax.set_xticks([xi + (len(products) - 1) * width / 2 for xi in x])
+            ax.set_xticklabels([f"Tháng {m}" for m in months])
+
+            ax.set_ylabel("Sản lượng")
+            ax.set_title(
+                f"Sản lượng theo sản phẩm năm {nam}"
+                + (f" - Tháng {thang}" if thang != "Tất cả" else "")
+            )
+
             if len(products) > 1:
-                ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-            
+                ax.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
+
             self.figure.tight_layout()
             self.canvas.draw()
-            
+
         except Exception as e:
             QMessageBox.warning(self, "Lỗi", f"Lỗi vẽ biểu đồ: {str(e)}")
         finally:
@@ -1824,7 +2499,7 @@ class MainWindow(QWidget):
                     if sl_tru_le > 0:
                         muon_text += f"- {sl_tru_le} từ giá lẻ\n"
                     muon_text += "\nXác nhận mượn?"
-                    
+
                     reply = QMessageBox.question(
                         self,
                         "Xác nhận mượn",
@@ -1902,7 +2577,7 @@ class MainWindow(QWidget):
             if not sp_info:
                 errors.append(f"{item['ten']}: Không tìm thấy thông tin sản phẩm")
                 continue
-                
+
             sp = sp_info[0]
             gia_le = float(sp[2])
             gia_buon = float(sp[3])
@@ -1911,7 +2586,9 @@ class MainWindow(QWidget):
             # Với VIP, tính chênh lệch cho từng phần theo công thức mới
             if item["loai_gia"] == "vip":
                 chenh_lech = 0  # Phần VIP không có chênh lệch
-                chenh_buon = gia_buon - gia_vip  # (giá buôn - giá VIP) cho phần lấy từ giá buôn
+                chenh_buon = (
+                    gia_buon - gia_vip
+                )  # (giá buôn - giá VIP) cho phần lấy từ giá buôn
                 chenh_le = gia_le - gia_vip  # (giá lẻ - giá VIP) cho phần lấy từ giá lẻ
             else:
                 # Với các loại giá khác, giữ nguyên logic cũ
@@ -1973,20 +2650,30 @@ class MainWindow(QWidget):
     def init_tab_cong_doan(self):
         layout = QVBoxLayout()
 
-        # Lọc theo ngày (ô chọn ngày, không nhập tay)
+        # Lọc theo ngày và username
         filter_layout = QHBoxLayout()
+        
+        filter_layout.addWidget(QLabel("User:"))
+        self.cd_user_combo = QComboBox()
+        self.cd_user_combo.addItem("Tất cả", None)
+        from users import lay_tat_ca_user
+        try:
+            for uid, uname, role, so_du in lay_tat_ca_user():
+                self.cd_user_combo.addItem(f"{uname} (ID: {uid})", uid)
+        except Exception:
+            pass
+        filter_layout.addWidget(self.cd_user_combo)
+        
         filter_layout.addWidget(QLabel("Từ ngày:"))
         self.tu_ngay_edit = QDateEdit()
-        self.tu_ngay_edit.setCalendarPopup(True)  # Popup lịch để chọn
-        self.tu_ngay_edit.setDate(
-            QDate.currentDate().addMonths(-1)
-        )  # Mặc định 1 tháng trước
+        self.tu_ngay_edit.setCalendarPopup(True)
+        self.tu_ngay_edit.setDate(QDate.currentDate().addMonths(-1))
         filter_layout.addWidget(self.tu_ngay_edit)
 
         filter_layout.addWidget(QLabel("Đến ngày:"))
         self.den_ngay_edit = QDateEdit()
         self.den_ngay_edit.setCalendarPopup(True)
-        self.den_ngay_edit.setDate(QDate.currentDate())  # Mặc định hôm nay
+        self.den_ngay_edit.setDate(QDate.currentDate())
         filter_layout.addWidget(self.den_ngay_edit)
 
         btn_load_cd = QPushButton("Tải báo cáo")
@@ -1995,44 +2682,374 @@ class MainWindow(QWidget):
 
         layout.addLayout(filter_layout)
 
+        # Bảng công đoàn
         self.tbl_cong_doan = QTableWidget()
-        self.tbl_cong_doan.setColumnCount(6)
+        self.tbl_cong_doan.setColumnCount(7)
         self.tbl_cong_doan.setHorizontalHeaderLabels(
-            ["ID", "SP ID", "User ID", "Ngày", "Số lượng", "Chênh lệch"]
+            ["Username", "Ngày", "Sản phẩm", "Số lượng", "Giá bán", "Loại giá", "Chênh lệch"]
         )
         self.setup_table(self.tbl_cong_doan)
         layout.addWidget(self.tbl_cong_doan)
 
-        self.lbl_tong_cd = QLabel("Tổng: 0")
+        # Tổng tiền chênh lệch
+        self.lbl_tong_cd = QLabel("Tổng chênh lệch: 0")
         layout.addWidget(self.lbl_tong_cd)
+
+        # Các nút
+        btn_layout = QHBoxLayout()
+        btn_chuyen_tien_cd = QPushButton("Chuyển tiền công đoàn")
+        btn_chuyen_tien_cd.clicked.connect(self.chuyen_tien_cong_doan_click)
+        btn_layout.addWidget(btn_chuyen_tien_cd)
+        
+        btn_print_cd = QPushButton("In báo cáo")
+        btn_print_cd.clicked.connect(self.print_bao_cao_cong_doan)
+        btn_layout.addWidget(btn_print_cd)
+        
+        layout.addLayout(btn_layout)
 
         self.tab_cong_doan.setLayout(layout)
 
     def load_bao_cao_cong_doan(self):
         tu_ngay = self.tu_ngay_edit.date().toString("yyyy-MM-dd")
         den_ngay = self.den_ngay_edit.date().toString("yyyy-MM-dd")
-        data, tong = lay_bao_cao_cong_doan(tu_ngay, den_ngay)
-        self.tbl_cong_doan.setRowCount(len(data))
-        for row_idx, row in enumerate(data):
-            for col_idx, val in enumerate(row):
-                self.tbl_cong_doan.setItem(row_idx, col_idx, QTableWidgetItem(str(val)))
-        self.lbl_tong_cd.setText(f"Tổng: {format_price(tong)}")
+        user_id = self.cd_user_combo.currentData()
+        
+        try:
+            conn = ket_noi()
+            c = conn.cursor()
+            
+            # Query từ LogKho để lấy thông tin bán hàng
+            base_sql = """
+                SELECT u.username, l.ngay, s.ten, l.so_luong, l.gia_ap_dung, 
+                       CASE 
+                           WHEN l.gia_ap_dung = s.gia_vip THEN 'VIP'
+                           WHEN l.gia_ap_dung = s.gia_buon THEN 'Buôn'
+                           ELSE 'Lẻ'
+                       END as loai_gia,
+                       l.chenh_lech_cong_doan
+                FROM LogKho l
+                JOIN Users u ON l.user_id = u.id
+                JOIN SanPham s ON l.sanpham_id = s.id
+                WHERE l.hanh_dong = 'xuat' 
+                  AND date(l.ngay) >= ? AND date(l.ngay) <= ?
+            """
+            params = [tu_ngay, den_ngay]
+            
+            if user_id is not None:
+                base_sql += " AND l.user_id = ?"
+                params.append(user_id)
+            
+            base_sql += " ORDER BY l.ngay DESC"
+            
+            c.execute(base_sql, params)
+            rows = c.fetchall()
+            
+            self.tbl_cong_doan.setRowCount(len(rows))
+            tong_chenh_lech = 0
+            
+            for i, r in enumerate(rows):
+                # r = (username, ngay, ten_sp, so_luong, gia_ban, loai_gia, chenh_lech)
+                self.tbl_cong_doan.setItem(i, 0, QTableWidgetItem(str(r[0])))
+                self.tbl_cong_doan.setItem(i, 1, QTableWidgetItem(str(r[1])))
+                self.tbl_cong_doan.setItem(i, 2, QTableWidgetItem(str(r[2])))
+                self.tbl_cong_doan.setItem(i, 3, QTableWidgetItem(str(r[3])))
+                self.tbl_cong_doan.setItem(i, 4, QTableWidgetItem(format_price(r[4])))
+                self.tbl_cong_doan.setItem(i, 5, QTableWidgetItem(str(r[5])))
+                
+                chenh_lech = float(r[6]) if r[6] else 0
+                self.tbl_cong_doan.setItem(i, 6, QTableWidgetItem(format_price(chenh_lech)))
+                tong_chenh_lech += chenh_lech
+            
+            self.lbl_tong_cd.setText(f"Tổng chênh lệch: {format_price(tong_chenh_lech)}")
+            conn.close()
+            
+        except Exception as e:
+            QMessageBox.warning(self, "Lỗi", f"Lỗi tải báo cáo công đoàn: {e}")
+
+    def chuyen_tien_cong_doan_click(self):
+        # Dialog giống như chuyển tiền ở tab Số dư
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Chuyển tiền công đoàn")
+        layout = QVBoxLayout()
+
+        # Lấy username của user hiện tại
+        from users import lay_tat_ca_user
+        users = lay_tat_ca_user()
+        current_username = None
+        for user in users:
+            if user[0] == self.user_id:
+                current_username = user[1]
+                break
+
+        layout.addWidget(QLabel(f"Từ user: {current_username}"))
+        layout.addWidget(QLabel("Đến user:"))
+
+        # ComboBox chọn user
+        den_user_combo = QComboBox()
+        for user in users:
+            if user[0] != self.user_id:
+                den_user_combo.addItem(f"{user[1]} (ID: {user[0]})", user[0])
+        layout.addWidget(den_user_combo)
+        
+        layout.addWidget(QLabel("Số tiền:"))
+        so_tien_edit = QLineEdit()
+        so_tien_edit.setValidator(QDoubleValidator())
+        layout.addWidget(so_tien_edit)
+        
+        layout.addWidget(QLabel("Nội dung:"))
+        noi_dung_edit = QLineEdit()
+        noi_dung_edit.setPlaceholderText("Chuyển tiền công đoàn...")
+        layout.addWidget(noi_dung_edit)
+
+        btn_ok = QPushButton("Xác nhận")
+        btn_ok.clicked.connect(dialog.accept)
+        layout.addWidget(btn_ok)
+
+        dialog.setLayout(layout)
+
+        if dialog.exec_() != QDialog.Accepted:
+            return
+
+        den_user_id = den_user_combo.currentData()
+        so_tien_str = so_tien_edit.text()
+        noi_dung = noi_dung_edit.text()
+
+        if not so_tien_str:
+            QMessageBox.warning(self, "Lỗi", "Vui lòng nhập số tiền")
+            return
+
+        try:
+            so_tien = float(so_tien_str)
+        except:
+            QMessageBox.warning(self, "Lỗi", "Số tiền không hợp lệ")
+            return
+
+        from users import chuyen_tien
+        success, err = chuyen_tien(self.user_id, den_user_id, so_tien)
+        
+        if success:
+            # Cập nhật ghi chú nếu có
+            if noi_dung:
+                try:
+                    conn = ket_noi()
+                    c = conn.cursor()
+                    c.execute(
+                        "UPDATE GiaoDichQuy SET ghi_chu = ? WHERE user_id = ? AND user_nhan_id = ? ORDER BY id DESC LIMIT 1",
+                        (noi_dung, self.user_id, den_user_id)
+                    )
+                    conn.commit()
+                    conn.close()
+                except:
+                    pass
+            
+            QMessageBox.information(self, "Thành công", f"Đã chuyển {format_price(so_tien)} thành công")
+            self.load_so_quy()
+        else:
+            QMessageBox.warning(self, "Lỗi", f"Chuyển tiền thất bại: {err}")
+
+    def print_bao_cao_cong_doan(self):
+        tu_ngay = self.tu_ngay_edit.date().toString("dd/MM/yyyy")
+        den_ngay = self.den_ngay_edit.date().toString("dd/MM/yyyy")
+        
+        # Tạo HTML cho báo cáo
+        html = f"""
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <style>
+                @page {{ size: A4; margin: 1cm; }}
+                body {{ font-family: Arial; font-size: 12pt; }}
+                h2 {{ text-align: center; }}
+                table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
+                th, td {{ border: 1px solid black; padding: 8px; text-align: left; }}
+                th {{ background-color: #f0f0f0; }}
+                .total {{ font-weight: bold; text-align: right; margin-top: 10px; }}
+            </style>
+        </head>
+        <body>
+            <h2>BÁO CÁO CÔNG ĐOÀN</h2>
+            <p>Từ ngày: {tu_ngay} - Đến ngày: {den_ngay}</p>
+            <table>
+                <tr>
+                    <th>Username</th>
+                    <th>Ngày</th>
+                    <th>Sản phẩm</th>
+                    <th>Số lượng</th>
+                    <th>Giá bán</th>
+                    <th>Loại giá</th>
+                    <th>Chênh lệch</th>
+                </tr>
+        """
+        
+        for row in range(self.tbl_cong_doan.rowCount()):
+            html += "<tr>"
+            for col in range(7):
+                item = self.tbl_cong_doan.item(row, col)
+                text = item.text() if item else ""
+                html += f"<td>{text}</td>"
+            html += "</tr>"
+        
+        html += f"""
+            </table>
+            <p class="total">{self.lbl_tong_cd.text()}</p>
+        </body>
+        </html>
+        """
+        
+        # In qua dialog
+        from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
+        from PyQt5.QtWidgets import QTextEdit
+        
+        printer = QPrinter(QPrinter.HighResolution)
+        dialog = QPrintDialog(printer, self)
+        
+        if dialog.exec_() == QPrintDialog.Accepted:
+            text_edit = QTextEdit()
+            text_edit.setHtml(html)
+            text_edit.print_(printer)
+            QMessageBox.information(self, "Thành công", "Đã gửi báo cáo đến máy in")
 
     def init_tab_so_quy(self):
-        layout = QVBoxLayout()
+        # Tạo tab con cho Sổ quỹ: "Số dư" và "Lịch sử giao dịch"
+        parent_layout = QVBoxLayout()
+        self.so_quy_tabs = QTabWidget()
+        parent_layout.addWidget(self.so_quy_tabs)
+
+        # Tab con: Số dư (giữ nguyên giao diện hiện tại)
+        self.tab_so_quy_sodu = QWidget()
+        sodu_layout = QVBoxLayout()
         self.tbl_soquy = QTableWidget()
         self.tbl_soquy.setColumnCount(4)
         self.tbl_soquy.setHorizontalHeaderLabels(["ID", "Username", "Role", "Số dư"])
         self.setup_table(self.tbl_soquy)
-        layout.addWidget(self.tbl_soquy)
+        sodu_layout.addWidget(self.tbl_soquy)
         btn_refresh_quy = QPushButton("Làm mới")
         btn_refresh_quy.clicked.connect(self.load_so_quy)
-        layout.addWidget(btn_refresh_quy)
+        sodu_layout.addWidget(btn_refresh_quy)
         btn_chuyen_tien = QPushButton("Chuyển tiền")
         btn_chuyen_tien.clicked.connect(self.chuyen_tien_click)
-        layout.addWidget(btn_chuyen_tien)
-        self.tab_so_quy.setLayout(layout)
+        sodu_layout.addWidget(btn_chuyen_tien)
+        self.tab_so_quy_sodu.setLayout(sodu_layout)
+        self.so_quy_tabs.addTab(self.tab_so_quy_sodu, "Số dư")
+
+        # Tab con: Lịch sử giao dịch
+        self.tab_so_quy_ls = QWidget()
+        ls_layout = QVBoxLayout()
+        # Filter bar: User + Từ ngày + Đến ngày + Tải
+        fl = QHBoxLayout()
+        from users import lay_tat_ca_user
+
+        self.ls_user_combo = QComboBox()
+        self.ls_user_combo.addItem("Tất cả", None)
+        try:
+            for uid, uname, role, so_du in lay_tat_ca_user():
+                self.ls_user_combo.addItem(f"{uname} (ID: {uid})", uid)
+        except Exception:
+            pass
+        fl.addWidget(QLabel("User:"))
+        fl.addWidget(self.ls_user_combo)
+        fl.addStretch()
+        fl.addWidget(QLabel("Từ ngày:"))
+        self.ls_tu = QDateEdit()
+        self.ls_tu.setCalendarPopup(True)
+        self.ls_tu.setDate(QDate.currentDate().addMonths(-1))
+        fl.addWidget(self.ls_tu)
+        fl.addWidget(QLabel("Đến ngày:"))
+        self.ls_den = QDateEdit()
+        self.ls_den.setCalendarPopup(True)
+        self.ls_den.setDate(QDate.currentDate())
+        fl.addWidget(self.ls_den)
+        btn_load_ls = QPushButton("Tải dữ liệu")
+        btn_load_ls.clicked.connect(self.load_lich_su_quy)
+        fl.addWidget(btn_load_ls)
+        ls_layout.addLayout(fl)
+
+        # Bảng lịch sử giao dịch
+        self.tbl_ls_quy = QTableWidget()
+        self.tbl_ls_quy.setColumnCount(6)
+        self.tbl_ls_quy.setHorizontalHeaderLabels(
+            ["Thời gian", "Từ user", "Đến user", "Số tiền", "Ca ngày", "Ghi chú"]
+        )
+        self.setup_table(self.tbl_ls_quy)
+        ls_layout.addWidget(self.tbl_ls_quy)
+        self.tab_so_quy_ls.setLayout(ls_layout)
+        self.so_quy_tabs.addTab(self.tab_so_quy_ls, "Lịch sử giao dịch")
+
+        self.tab_so_quy.setLayout(parent_layout)
+        # Nạp dữ liệu mặc định
         self.load_so_quy()
+        self.load_lich_su_quy()
+
+    def load_lich_su_quy(self):
+        # Đọc filter
+        uid = self.ls_user_combo.currentData()
+        tu = self.ls_tu.date().toString("yyyy-MM-dd")
+        den = self.ls_den.date().toString("yyyy-MM-dd")
+        # Query DB
+        try:
+            conn = ket_noi()
+            c = conn.cursor()
+            base_sql = (
+                "SELECT g.id, u.username AS tu_user, un.username AS den_user, "
+                "g.so_tien, g.ngay, COALESCE(g.ghi_chu, '') AS ghi_chu, "
+                "COALESCE(h.ngay, '') AS ca_ngay, g.hoadon_id "
+                "FROM GiaoDichQuy g "
+                "LEFT JOIN Users u ON g.user_id = u.id "
+                "LEFT JOIN Users un ON g.user_nhan_id = un.id "
+                "LEFT JOIN HoaDon h ON g.hoadon_id = h.id "
+                "WHERE date(g.ngay) >= ? AND date(g.ngay) <= ?"
+            )
+            params = [tu, den]
+            if uid is not None:
+                base_sql += " AND (g.user_id = ? OR g.user_nhan_id = ?)"
+                params += [uid, uid]
+            base_sql += " ORDER BY g.ngay DESC, g.id DESC"
+            c.execute(base_sql, params)
+            rows = c.fetchall()
+            self.tbl_ls_quy.setRowCount(len(rows))
+            for i, r in enumerate(rows):
+                # r = (id, tu_user, den_user, so_tien, ngay_nop_tien, ghi_chu, ca_ngay, hoadon_id)
+                # Cột 0: Thời gian nộp tiền (ngày giờ đầy đủ)
+                try:
+                    ngay_nop_str = str(r[4])  # g.ngay - thời gian nộp tiền
+                    # Loại bỏ phần microseconds nếu có
+                    if "." in ngay_nop_str:
+                        ngay_nop_str = ngay_nop_str.split(".")[0]
+                    self.tbl_ls_quy.setItem(i, 0, QTableWidgetItem(ngay_nop_str))
+                except Exception:
+                    self.tbl_ls_quy.setItem(i, 0, QTableWidgetItem(""))
+
+                # Cột 1-3: User và số tiền
+                self.tbl_ls_quy.setItem(i, 1, QTableWidgetItem(str(r[1] or "")))
+                self.tbl_ls_quy.setItem(i, 2, QTableWidgetItem(str(r[2] or "")))
+                try:
+                    self.tbl_ls_quy.setItem(
+                        i, 3, QTableWidgetItem(format_price(float(r[3])))
+                    )
+                except Exception:
+                    self.tbl_ls_quy.setItem(i, 3, QTableWidgetItem(str(r[3])))
+
+                # Cột 4: Ca ngày - ưu tiên ngày của hóa đơn, nếu không có thì lấy ngày nộp tiền
+                try:
+                    ca_ngay_str = str(r[6]) if r[6] else str(r[4])  # h.ngay hoặc g.ngay
+                    # Chỉ lấy phần ngày (không lấy giờ)
+                    if " " in ca_ngay_str:
+                        date_only = ca_ngay_str.split(" ")[0]
+                    else:
+                        date_only = ca_ngay_str
+                    self.tbl_ls_quy.setItem(i, 4, QTableWidgetItem(date_only))
+                except Exception:
+                    self.tbl_ls_quy.setItem(i, 4, QTableWidgetItem(""))
+
+                # Cột 5: Ghi chú
+                self.tbl_ls_quy.setItem(i, 5, QTableWidgetItem(str(r[5] or "")))
+        except Exception as e:
+            QMessageBox.warning(self, "Lỗi", f"Lỗi tải lịch sử quỹ: {e}")
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
     def load_so_quy(self):
         users = lay_tat_ca_user()
@@ -2314,81 +3331,433 @@ class MainWindow(QWidget):
                 QMessageBox.warning(self, "Lỗi", f"Lỗi import: {str(e)}")
 
     def dong_ca_in_pdf(self):
+        if not self.nhan_hang_completed:
+            QMessageBox.warning(
+                self, "Lỗi", "Bạn chưa nhận hàng. Vui lòng nhận hàng trước khi đóng ca."
+            )
+            return
+
         from datetime import datetime
         from PyQt5.QtPrintSupport import QPrinter
         from PyQt5.QtGui import QPainter
-        # Lấy dữ liệu nhận hàng
+
+        # Lấy dữ liệu nhận hàng với chênh lệch
         nhan_hang_data = []
+        chenh_lech_data = []
         for row in range(self.tbl_nhan_hang.rowCount()):
             ten_sp = self.tbl_nhan_hang.item(row, 0).text()
             try:
-                sl_nhan = float(self.tbl_nhan_hang.item(row, 1).text())
+                sl_dem = float(self.tbl_nhan_hang.item(row, 1).text())
             except:
-                sl_nhan = 0
-            ghi_chu = self.tbl_nhan_hang.item(row, 2).text()
-            nhan_hang_data.append((ten_sp, sl_nhan, ghi_chu))
+                sl_dem = 0
+            try:
+                ton_db = float(self.tbl_nhan_hang.item(row, 2).text())
+            except:
+                ton_db = 0
+            try:
+                chenh = float(self.tbl_nhan_hang.item(row, 3).text())
+            except:
+                chenh = 0
+            ghi_chu = (
+                self.tbl_nhan_hang.item(row, 4).text()
+                if self.tbl_nhan_hang.item(row, 4)
+                else ""
+            )
 
-        # Lấy dữ liệu bán hàng (giả sử lấy từ bảng chi tiết hóa đơn của user trong ngày)
-        today = datetime.now().strftime('%Y-%m-%d')
-        from invoices import lay_danh_sach_hoadon, lay_chi_tiet_hoadon
-        hoadons = lay_danh_sach_hoadon("Da_xuat")
-        tong_tien = 0
-        tong_cong_doan = 0
-        tong_nop = 0
-        tong_thieu = 0
-        sp_ban_list = []
-        for hd in hoadons:
-            if hd[1] == self.user_id and hd[4][:10] == today:
-                chi_tiet = lay_chi_tiet_hoadon(hd[0])
-                for r in chi_tiet:
-                    sp_ban_list.append((r[3], r[4], r[6]))  # tên, sl, giá
-                    tong_tien += r[4]*r[6] - r[9]
-        # Lấy công đoàn
-        from stock import lay_bao_cao_cong_doan
-        _, tong_cong_doan = lay_bao_cao_cong_doan(today, today)
-        # Lấy tiền đã nộp
+            if sl_dem > 0:
+                nhan_hang_data.append((ten_sp, sl_dem, ton_db, chenh, ghi_chu))
+                if abs(chenh) > 0.001:  # Có chênh lệch
+                    chenh_lech_data.append((ten_sp, ton_db, sl_dem, chenh, ghi_chu))
+
+        # Lấy dữ liệu bán hàng từ HÓA ĐƠN CUỐI CÙNG (hóa đơn vừa tạo)
+        today = datetime.now().strftime("%Y-%m-%d")
+        today_display = datetime.now().strftime("%d/%m/%Y %H:%M")
+        from invoices import lay_chi_tiet_hoadon
+
+        # Dùng dict để gộp sản phẩm: key = (tên, loại_gia, giá, xhd)
+        sp_dict_xhd = {}  # {(tên, loại_gia, giá): [tổng_sl, tổng_tiền]}
+        sp_dict_chua_xhd = {}
+        tong_tien_ban = 0
+        tong_tien_xhd = 0
+        tong_tien_chua_xhd = 0
+
+        # Lấy chi tiết từ hóa đơn cuối cùng (nếu có)
+        if self.last_invoice_id:
+            chi_tiet = lay_chi_tiet_hoadon(self.last_invoice_id)
+            for r in chi_tiet:
+                # r = (id, hoadon_id, sanpham_id, ten, so_luong, loai_gia, gia, xuat_hoa_don, gia_le, giam, ghi_chu)
+                ten = r[3]
+                sl = r[4]
+                loai_gia = r[5]
+                gia = r[6]
+                xhd = r[7]
+                giam = r[9] if len(r) > 9 else 0
+                tong = sl * gia - giam
+                tong_tien_ban += tong
+
+                loai_gia_text = {"le": "Lẻ", "buon": "Buôn", "vip": "VIP"}.get(
+                    loai_gia, loai_gia
+                )
+                key = (ten, loai_gia_text, gia)
+
+                if xhd == 1:
+                    if key not in sp_dict_xhd:
+                        sp_dict_xhd[key] = [0, 0]
+                    sp_dict_xhd[key][0] += sl
+                    sp_dict_xhd[key][1] += tong
+                    tong_tien_xhd += tong
+                else:
+                    if key not in sp_dict_chua_xhd:
+                        sp_dict_chua_xhd[key] = [0, 0]
+                    sp_dict_chua_xhd[key][0] += sl
+                    sp_dict_chua_xhd[key][1] += tong
+                    tong_tien_chua_xhd += tong
+
+        # Chuyển dict thành list để hiển thị
+        sp_da_xhd = [
+            (ten, sl, loai_gia, gia, tong)
+            for (ten, loai_gia, gia), [sl, tong] in sp_dict_xhd.items()
+        ]
+        sp_chua_xhd = [
+            (ten, sl, loai_gia, gia, tong)
+            for (ten, loai_gia, gia), [sl, tong] in sp_dict_chua_xhd.items()
+        ]
+
+        # Lấy công đoàn và tiền nộp
         from users import lay_tong_nop_theo_hoadon
-        for hd in hoadons:
-            if hd[1] == self.user_id and hd[4][:10] == today:
-                tong_nop += lay_tong_nop_theo_hoadon(hd[0]) or 0
-        tong_thieu = tong_tien - tong_nop
+        from invoices import lay_danh_sach_hoadon
 
-        # Tạo file PDF
-        filename = f"tong_ket_ca_{self.user_id}_{today}.pdf"
-        printer = QPrinter()
-        printer.setOutputFormat(QPrinter.PdfFormat)
-        printer.setOutputFileName(filename)
-        painter = QPainter()
-        painter.begin(printer)
-        y = 50
-        painter.drawText(100, y, f"TỔNG KẾT CA BÁN HÀNG - User: {self.user_id} - Ngày: {today}")
-        y += 40
-        painter.drawText(100, y, "--- Sản phẩm nhận ---")
-        y += 30
-        for ten_sp, sl_nhan, ghi_chu in nhan_hang_data:
-            painter.drawText(120, y, f"{ten_sp}: {sl_nhan} ({ghi_chu})")
-            y += 25
-        y += 20
-        painter.drawText(100, y, "--- Sản phẩm đã bán ---")
-        y += 30
-        for ten, sl, gia in sp_ban_list:
-            painter.drawText(120, y, f"{ten}: {sl} x {gia}")
-            y += 25
-        y += 20
-        painter.drawText(100, y, f"Tổng tiền bán: {tong_tien}")
-        y += 25
-        painter.drawText(100, y, f"Chênh lệch công đoàn: {tong_cong_doan}")
-        y += 25
-        painter.drawText(100, y, f"Tiền đã nộp: {tong_nop}")
-        y += 25
-        painter.drawText(100, y, f"Tiền còn thiếu: {tong_thieu}")
-        y += 40
-        painter.drawText(100, y, "--- Kết thúc ca ---")
-        painter.end()
-        QMessageBox.information(self, "Thành công", f"Đã in tổng kết ca vào file {filename}")
+        # Tính tổng công đoàn từ LogKho
+        tong_cong_doan = 0
+        try:
+            conn = ket_noi()
+            c = conn.cursor()
+            c.execute(
+                "SELECT SUM(chenh_lech_cong_doan) FROM LogKho WHERE date(ngay) = ? AND hanh_dong = 'xuat'",
+                (today,)
+            )
+            result = c.fetchone()
+            tong_cong_doan = result[0] if result and result[0] else 0
+            conn.close()
+        except:
+            tong_cong_doan = 0
+
+        tong_nop = 0
+        # Lấy tiền đã nộp từ hóa đơn cuối cùng
+        if self.last_invoice_id:
+            tong_nop = lay_tong_nop_theo_hoadon(self.last_invoice_id) or 0
+
+        tong_thieu = tong_tien_ban - tong_nop
+
+        # Show preview dialog
+        preview_dialog = QDialog(self)
+        preview_dialog.setWindowTitle("Xem trước tổng kết ca")
+        preview_dialog.resize(800, 600)
+        layout = QVBoxLayout()
+
+        # Create text content
+        content = QTextEdit()
+        content.setReadOnly(True)
+
+        html_content = f"""
+        <html>
+        <head>
+            <style>
+                @page {{
+                    size: A4 portrait;
+                    margin: 15mm;
+                }}
+                @media print {{
+                    body {{
+                        margin: 0;
+                        padding: 0;
+                    }}
+                    .no-print {{
+                        display: none;
+                    }}
+                }}
+                body {{
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    font-size: 10pt;
+                    margin: 0;
+                    padding: 10px;
+                    max-width: 210mm;
+                }}
+                h1 {{
+                    text-align: center;
+                    color: #2c3e50;
+                    border-bottom: 2px solid #3498db;
+                    padding-bottom: 8px;
+                    margin: 10px 0 15px 0;
+                    font-size: 16pt;
+                }}
+                h2 {{
+                    color: #34495e;
+                    margin-top: 15px;
+                    margin-bottom: 8px;
+                    border-left: 3px solid #3498db;
+                    padding-left: 8px;
+                    font-size: 12pt;
+                }}
+                table {{
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 5px 0 10px 0;
+                    font-size: 9pt;
+                }}
+                th {{
+                    background-color: #3498db;
+                    color: white;
+                    padding: 6px 8px;
+                    text-align: left;
+                    font-weight: bold;
+                    border: 1px solid #2980b9;
+                }}
+                td {{
+                    padding: 5px 8px;
+                    border: 1px solid #ddd;
+                }}
+                tr:nth-child(even) {{
+                    background-color: #f9f9f9;
+                }}
+                .info-box {{
+                    background-color: #e8f5e9;
+                    padding: 8px;
+                    border-left: 3px solid #4caf50;
+                    margin: 10px 0;
+                    font-size: 9pt;
+                }}
+                .money {{
+                    text-align: right;
+                    font-weight: bold;
+                }}
+                .total-row {{
+                    background-color: #3498db !important;
+                    color: white;
+                    font-weight: bold;
+                }}
+            </style>
+        </head>
+        <body>
+            <h1>BÁO CÁO ĐÓNG CA</h1>
+            
+            <div class="info-box">
+                <strong>Ngày giờ:</strong> {datetime.now().strftime("%d/%m/%Y %H:%M")}<br>
+                <strong>Người bán:</strong> {lay_username(self.user_id)} (ID: {self.user_id})
+            </div>
+
+            <h2>Danh sách nhận hàng</h2>
+        """
+
+        if nhan_hang_data:
+            html_content += """
+            <table>
+                <tr>
+                    <th>Sản phẩm</th>
+                    <th style="text-align: right;">SL Đếm</th>
+                    <th style="text-align: right;">Tồn HT</th>
+                    <th style="text-align: right;">Chênh lệch</th>
+                    <th>Lý do</th>
+                </tr>
+            """
+            for sp in nhan_hang_data:
+                ten, sl_dem, ton_db, chenh, ghi_chu = sp
+                chenh_style = (
+                    "color: red;"
+                    if chenh < 0
+                    else ("color: green;" if chenh > 0 else "")
+                )
+                html_content += f"""
+                <tr>
+                    <td>{ten}</td>
+                    <td class="money">{sl_dem:.0f}</td>
+                    <td class="money">{ton_db:.0f}</td>
+                    <td class="money" style="{chenh_style}">{chenh:+.0f}</td>
+                    <td>{ghi_chu if ghi_chu else '-'}</td>
+                </tr>
+                """
+            html_content += "</table>"
+        else:
+            html_content += "<p><i>Không có dữ liệu nhận hàng</i></p>"
+
+        html_content += "<h2>Danh sách sản phẩm đã bán - ĐÃ XUẤT HÓA ĐƠN</h2>"
+
+        if sp_da_xhd:
+            html_content += """
+            <table>
+                <tr>
+                    <th>Sản phẩm</th>
+                    <th style="text-align: center;">SL</th>
+                    <th style="text-align: center;">Loại giá</th>
+                    <th style="text-align: right;">Đơn giá</th>
+                    <th style="text-align: right;">Thành tiền</th>
+                </tr>
+            """
+            for sp in sp_da_xhd:
+                ten, sl, loai_gia, gia, tong = sp
+                html_content += f"""
+                <tr>
+                    <td>{ten}</td>
+                    <td style="text-align: center;">{sl:.0f}</td>
+                    <td style="text-align: center;">{loai_gia}</td>
+                    <td class="money">{gia:,.0f}</td>
+                    <td class="money">{tong:,.0f}</td>
+                </tr>
+                """
+            html_content += f"""
+                <tr class="total-row">
+                    <td colspan="4">TỔNG ĐÃ XUẤT HÓA ĐƠN</td>
+                    <td class="money">{tong_tien_xhd:,.0f}</td>
+                </tr>
+            </table>
+            """
+        else:
+            html_content += "<p><i>Không có sản phẩm đã xuất hóa đơn</i></p>"
+
+        html_content += "<h2>Danh sách sản phẩm đã bán - CHƯA XUẤT HÓA ĐƠN</h2>"
+
+        if sp_chua_xhd:
+            html_content += """
+            <table>
+                <tr>
+                    <th>Sản phẩm</th>
+                    <th style="text-align: center;">SL</th>
+                    <th style="text-align: center;">Loại giá</th>
+                    <th style="text-align: right;">Đơn giá</th>
+                    <th style="text-align: right;">Thành tiền</th>
+                </tr>
+            """
+            for sp in sp_chua_xhd:
+                ten, sl, loai_gia, gia, tong = sp
+                html_content += f"""
+                <tr>
+                    <td>{ten}</td>
+                    <td style="text-align: center;">{sl:.0f}</td>
+                    <td style="text-align: center;">{loai_gia}</td>
+                    <td class="money">{gia:,.0f}</td>
+                    <td class="money">{tong:,.0f}</td>
+                </tr>
+                """
+            html_content += f"""
+                <tr class="total-row">
+                    <td colspan="4">TỔNG CHƯA XUẤT HÓA ĐƠN</td>
+                    <td class="money">{tong_tien_chua_xhd:,.0f}</td>
+                </tr>
+            </table>
+            """
+        else:
+            html_content += "<p><i>Không có sản phẩm chưa xuất hóa đơn</i></p>"
+
+        html_content += f"""
+            <h2>Tổng kết tài chính</h2>
+                <table>
+                    <tr>
+                        <th>Khoản mục</th>
+                        <th style="text-align: right;">Số tiền</th>
+                    </tr>
+                    <tr>
+                        <td>Tổng tiền bán hàng</td>
+                        <td class="money">{tong_tien_ban:,.0f} VNĐ</td>
+                    </tr>
+                    <tr>
+                        <td>Tổng công đoàn</td>
+                        <td class="money">{tong_cong_doan:,.0f} VNĐ</td>
+                    </tr>
+                    <tr>
+                        <td>Tổng tiền đã nộp</td>
+                        <td class="money">{tong_nop:,.0f} VNĐ</td>
+                    </tr>
+                    <tr class="total-row">
+                        <td>Còn thiếu</td>
+                        <td class="money">{tong_thieu:,.0f} VNĐ</td>
+                    </tr>
+                </table>
+            </div>
+        </body>
+        </html>
+        """
+
+        content.setHtml(html_content)
+        layout.addWidget(content)
+
+        # Buttons
+        btn_layout = QHBoxLayout()
+
+        def do_print():
+            # Mở hộp thoại in (cho phép chọn máy in hoặc PDF)
+            from PyQt5.QtPrintSupport import QPrintDialog
+
+            printer = QPrinter(QPrinter.HighResolution)
+            printer.setPageSize(QPrinter.A4)
+
+            # Mở dialog in
+            print_dialog = QPrintDialog(printer, preview_dialog)
+            print_dialog.setWindowTitle("In báo cáo đóng ca")
+
+            if print_dialog.exec_() == QPrintDialog.Accepted:
+                # In nội dung HTML
+                content.document().print_(printer)
+                QMessageBox.information(
+                    preview_dialog, "Thành công", "Đã in báo cáo đóng ca!"
+                )
+
+        def close_shift():
+            reply = QMessageBox.question(
+                preview_dialog,
+                "Xác nhận đóng ca",
+                "Bạn có chắc muốn đóng ca không? Tab Bán hàng sẽ bị khóa cho đến khi nhận hàng mới.",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if reply == QMessageBox.Yes:
+                # Mark shift as closed and disable selling
+                self.ca_closed = True
+                self.tab_banhang.setEnabled(False)
+                # Disable the 'Lưu' button to prevent creating invoices after closing shift
+                try:
+                    self.btn_luu.setEnabled(False)
+                except Exception:
+                    pass
+                # Reset receive state to allow new receiving
+                self.nhan_hang_completed = False
+                self.tab_nhan_hang.setEnabled(True)
+                # Close preview
+                preview_dialog.accept()
+                QMessageBox.information(
+                    self,
+                    "Đóng ca thành công",
+                    "Đã đóng ca. Tab Bán hàng bị khóa.\nVui lòng nhận hàng mới để tiếp tục bán hàng.",
+                )
+
+        btn_print = QPushButton("In báo cáo")
+        btn_print.clicked.connect(do_print)
+        btn_layout.addWidget(btn_print)
+
+        btn_close = QPushButton("Đóng ca")
+        btn_close.clicked.connect(close_shift)
+        btn_layout.addWidget(btn_close)
+
+        btn_cancel = QPushButton("Hủy")
+        btn_cancel.clicked.connect(preview_dialog.reject)
+        btn_layout.addWidget(btn_cancel)
+
+        layout.addLayout(btn_layout)
+        preview_dialog.setLayout(layout)
+        preview_dialog.exec_()
+
+
 if __name__ == "__main__":
     import sys
     from PyQt5.QtWidgets import QApplication
+
+    # Đảm bảo tạo các bảng DB mới (ví dụ ChenhLech) khi khởi động
+    try:
+        from db import khoi_tao_db
+
+        khoi_tao_db()
+    except Exception:
+        pass
+
     app = QApplication(sys.argv)
     win = DangNhap()
     win.show()
