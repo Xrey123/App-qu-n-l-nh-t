@@ -2772,22 +2772,19 @@ class MainWindow(QWidget):
         dialog.setWindowTitle("Chuyển tiền công đoàn")
         layout = QVBoxLayout()
 
-        # Tìm user Accountant (KT) để làm nguồn tiền
+        # Dùng user hiện tại đang đăng nhập làm nguồn tiền
         from users import lay_tat_ca_user
         users = lay_tat_ca_user()
-        accountant_id = None
-        accountant_name = None
+        current_user_name = None
         for user in users:
-            if user[2] == "Accountant":  # user[2] là role
-                accountant_id = user[0]
-                accountant_name = user[1]
+            if user[0] == self.user_id:  # user[0] là ID
+                current_user_name = user[1]  # user[1] là username
                 break
         
-        if not accountant_id:
-            QMessageBox.warning(self, "Lỗi", "Không tìm thấy user Accountant (KT)")
-            return
+        if not current_user_name:
+            current_user_name = "User hiện tại"
 
-        layout.addWidget(QLabel(f"Từ user: {accountant_name} (Accountant)"))
+        layout.addWidget(QLabel(f"Từ user: {current_user_name}"))
         
         layout.addWidget(QLabel("Đến user (nhập tên):"))
         den_user_edit = QLineEdit()
@@ -2831,37 +2828,37 @@ class MainWindow(QWidget):
             QMessageBox.warning(self, "Lỗi", "Số tiền không hợp lệ")
             return
 
-        # Trừ tiền từ Accountant và ghi log
+        # Trừ tiền từ user hiện tại và ghi log
         try:
             from datetime import datetime
             conn = ket_noi()
             c = conn.cursor()
             
-            # Kiểm tra số dư accountant
-            c.execute("SELECT so_du FROM Users WHERE id = ?", (accountant_id,))
+            # Kiểm tra số dư user hiện tại
+            c.execute("SELECT so_du FROM Users WHERE id = ?", (self.user_id,))
             result = c.fetchone()
             so_du = result[0] if result else 0
             
             if so_du < so_tien:
-                QMessageBox.warning(self, "Lỗi", f"Số dư Accountant không đủ!\nSố dư hiện tại: {format_price(so_du)}\nCần: {format_price(so_tien)}")
+                QMessageBox.warning(self, "Lỗi", f"Số dư không đủ!\nSố dư hiện tại: {format_price(so_du)}\nCần: {format_price(so_tien)}")
                 conn.close()
                 return
             
-            # Trừ tiền từ accountant
-            c.execute("UPDATE Users SET so_du = so_du - ? WHERE id = ?", (so_tien, accountant_id))
+            # Trừ tiền từ user hiện tại
+            c.execute("UPDATE Users SET so_du = so_du - ? WHERE id = ?", (so_tien, self.user_id))
             
             # Ghi log vào GiaoDichQuy (không có user_nhan_id vì nhận bằng tay)
             thoi_gian = datetime.now().isoformat()
             ghi_chu_full = f"Chuyển công đoàn cho: {den_user_name}. {noi_dung}" if noi_dung else f"Chuyển công đoàn cho: {den_user_name}"
             c.execute(
                 "INSERT INTO GiaoDichQuy (user_id, user_nhan_id, so_tien, ngay, ghi_chu) VALUES (?, NULL, ?, ?, ?)",
-                (accountant_id, so_tien, thoi_gian, ghi_chu_full)
+                (self.user_id, so_tien, thoi_gian, ghi_chu_full)
             )
             
             conn.commit()
             conn.close()
             
-            QMessageBox.information(self, "Thành công", f"Đã chuyển {format_price(so_tien)} từ {accountant_name} cho {den_user_name}")
+            QMessageBox.information(self, "Thành công", f"Đã chuyển {format_price(so_tien)} từ {current_user_name} cho {den_user_name}")
             self.load_so_quy()
             
         except Exception as e:
