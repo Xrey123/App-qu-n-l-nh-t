@@ -22,7 +22,7 @@ def khoi_tao_db():
         print("Lỗi khi thêm cột ghi_chu vào GiaoDichQuy:", e)
     finally:
         conn.close()
-    
+
     # Tự động thêm cột loai_gia vào LogKho nếu chưa có
     try:
         conn = ket_noi()
@@ -183,7 +183,7 @@ def khoi_tao_db():
         )
         """
     )
-    
+
     # Bảng đầu kỳ xuất bỏ (để theo dõi số lượng có thể xuất theo từng loại giá)
     c.execute(
         """
@@ -201,7 +201,7 @@ def khoi_tao_db():
         )
         """
     )
-    
+
     conn.commit()
     conn.close()
 

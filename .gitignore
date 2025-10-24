@@ -1,0 +1,32 @@
+# Thư mục chứa file export (nhận hàng, tổng kết ca)
+data_export/
+
+# File CSV nhận hàng cũ (nếu còn trong thư mục gốc)
+nhan_hang_*.csv
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Database
+*.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

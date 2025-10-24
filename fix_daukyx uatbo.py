@@ -1,6 +1,7 @@
 """
 Script để xóa và tạo lại bảng DauKyXuatBo với schema đúng
 """
+
 from db import ket_noi
 
 conn = ket_noi()
@@ -12,7 +13,8 @@ c.execute("DROP TABLE IF EXISTS DauKyXuatBo")
 
 # Tạo lại với schema đúng
 print("Đang tạo lại bảng DauKyXuatBo với schema mới...")
-c.execute("""
+c.execute(
+    """
     CREATE TABLE DauKyXuatBo (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
@@ -25,7 +27,8 @@ c.execute("""
         FOREIGN KEY(user_id) REFERENCES Users(id),
         FOREIGN KEY(sanpham_id) REFERENCES SanPham(id)
     )
-""")
+"""
+)
 
 conn.commit()
 conn.close()

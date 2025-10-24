@@ -143,7 +143,7 @@ def xuat_bo_san_pham_theo_ten(
     """
     Xuất bổ sản phẩm theo tên sản phẩm, loại giá và số lượng.
     Tự động tìm và xuất từ các hóa đơn chưa xuất theo FIFO.
-    
+
     Logic mới:
     - Giá lẻ: chỉ lấy từ bảng chưa xuất giá lẻ
     - Giá buôn: ưu tiên bảng chưa xuất giá buôn trước, không đủ thì lấy từ bảng chưa xuất giá lẻ
@@ -154,7 +154,10 @@ def xuat_bo_san_pham_theo_ten(
         c = conn.cursor()
 
         # Lấy thông tin sản phẩm với giá các loại
-        c.execute("SELECT id, gia_vip, gia_buon, gia_le FROM SanPham WHERE ten = ?", (ten_sanpham,))
+        c.execute(
+            "SELECT id, gia_vip, gia_buon, gia_le FROM SanPham WHERE ten = ?",
+            (ten_sanpham,),
+        )
         result = c.fetchone()
         if not result:
             return False, f"Sản phẩm '{ten_sanpham}' không tồn tại"
@@ -188,14 +191,14 @@ def xuat_bo_san_pham_theo_ten(
             if tong_sl_co_san < so_luong_xuat:
                 return (
                     False,
-                    f"Sản phẩm '{ten_sanpham}' không đủ số lượng giá lẻ (có {tong_sl_co_san}, cần {so_luong_xuat})"
+                    f"Sản phẩm '{ten_sanpham}' không đủ số lượng giá lẻ (có {tong_sl_co_san}, cần {so_luong_xuat})",
                 )
-                
+
         elif loai_gia == "buon":
             # Giá buôn: ưu tiên bảng chưa xuất giá buôn trước, không đủ thì lấy từ bảng chưa xuất giá lẻ
             if tong_sl_co_san < so_luong_xuat:
                 sl_thieu = so_luong_xuat - tong_sl_co_san
-                
+
                 # Kiểm tra số lượng từ giá lẻ
                 c.execute(
                     """
@@ -203,25 +206,25 @@ def xuat_bo_san_pham_theo_ten(
                     FROM ChiTietHoaDon c
                     WHERE c.sanpham_id = ? AND c.loai_gia = 'le' AND c.xuat_hoa_don = 0
                     """,
-                    (sanpham_id,)
+                    (sanpham_id,),
                 )
                 sl_le_co = c.fetchone()[0] or 0
-                
+
                 if sl_le_co < sl_thieu:
                     return (
                         False,
-                        f"Sản phẩm '{ten_sanpham}' không đủ số lượng (buôn: {tong_sl_co_san}, lẻ: {sl_le_co}, cần: {so_luong_xuat})"
+                        f"Sản phẩm '{ten_sanpham}' không đủ số lượng (buôn: {tong_sl_co_san}, lẻ: {sl_le_co}, cần: {so_luong_xuat})",
                     )
-                
+
                 # Lưu thông tin để lấy từ giá lẻ
                 loai_gia_phu = "le"
                 so_luong_phu = sl_thieu
-                
+
         elif loai_gia == "vip":
             # Giá VIP: ưu tiên bảng giá VIP trước, không đủ qua bảng chưa xuất giá buôn, hiện thông báo xác nhận mượn
             if tong_sl_co_san < so_luong_xuat:
                 sl_thieu = so_luong_xuat - tong_sl_co_san
-                
+
                 # Kiểm tra số lượng từ giá buôn
                 c.execute(
                     """
@@ -229,15 +232,15 @@ def xuat_bo_san_pham_theo_ten(
                     FROM ChiTietHoaDon c
                     WHERE c.sanpham_id = ? AND c.loai_gia = 'buon' AND c.xuat_hoa_don = 0
                     """,
-                    (sanpham_id,)
+                    (sanpham_id,),
                 )
                 sl_buon_co = c.fetchone()[0] or 0
-                
+
                 if sl_buon_co > 0:
                     loai_gia_phu = "buon"
                     so_luong_phu = min(sl_thieu, sl_buon_co)
                     sl_thieu -= so_luong_phu
-                
+
                 # Nếu vẫn thiếu, kiểm tra số lượng từ giá lẻ
                 if sl_thieu > 0:
                     c.execute(
@@ -246,21 +249,21 @@ def xuat_bo_san_pham_theo_ten(
                         FROM ChiTietHoaDon c
                         WHERE c.sanpham_id = ? AND c.loai_gia = 'le' AND c.xuat_hoa_don = 0
                         """,
-                        (sanpham_id,)
+                        (sanpham_id,),
                     )
                     sl_le_co = c.fetchone()[0] or 0
-                    
+
                     if sl_le_co > 0:
                         loai_gia_phu2 = "le"
                         so_luong_phu2 = min(sl_thieu, sl_le_co)
                         sl_thieu -= so_luong_phu2
-                
+
                 # Kiểm tra tổng số lượng
                 tong_sl_co = tong_sl_co_san + so_luong_phu + so_luong_phu2
                 if tong_sl_co < so_luong_xuat:
                     return (
                         False,
-                        f"Không đủ số lượng (VIP: {tong_sl_co_san}, buôn: {so_luong_phu}, lẻ: {so_luong_phu2}, cần: {so_luong_xuat})"
+                        f"Không đủ số lượng (VIP: {tong_sl_co_san}, buôn: {so_luong_phu}, lẻ: {so_luong_phu2}, cần: {so_luong_xuat})",
                     )
 
         # Xuất bổ theo FIFO từ loại giá chính
@@ -269,8 +272,16 @@ def xuat_bo_san_pham_theo_ten(
         ngay = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         # Tính giá chênh lệch nếu xuất VIP từ các nguồn khác
-        chenh_buon = gia_vip - gia_buon if loai_gia == "vip" and loai_gia_phu == "buon" else chenh_lech
-        chenh_le = gia_vip - gia_le if loai_gia == "vip" and loai_gia_phu2 == "le" else chenh_lech
+        chenh_buon = (
+            gia_vip - gia_buon
+            if loai_gia == "vip" and loai_gia_phu == "buon"
+            else chenh_lech
+        )
+        chenh_le = (
+            gia_vip - gia_le
+            if loai_gia == "vip" and loai_gia_phu2 == "le"
+            else chenh_lech
+        )
 
         # Xuất từ loại giá chính trước
         for chi_tiet_id, hoadon_id, sl_hien_tai, gia in chi_tiet_list:
@@ -422,7 +433,7 @@ def xuat_bo_san_pham_theo_ten(
                 "VALUES (?, ?, ?, 'xuatbo', ?, 0, 0, 0, ?, ?)",
                 (sanpham_id, user_id, ngay, sl_chinh, chenh_lech, loai_gia),
             )
-        
+
         # Tính chênh lệch công đoàn theo yêu cầu mới
         # Xử lý loại giá phụ cho cả "buon" và "vip"
         if so_luong_phu > 0 and loai_gia_phu:
@@ -447,7 +458,7 @@ def xuat_bo_san_pham_theo_ten(
                     "VALUES (?, ?, ?, 'xuatbo', ?, 0, 0, 0, 0, ?)",
                     (sanpham_id, user_id, ngay, so_luong_phu, loai_gia_phu),
                 )
-        
+
         if so_luong_phu2 > 0 and loai_gia_phu2:
             if loai_gia == "vip":
                 # Chênh lệch = (giá lẻ - giá VIP) x số lượng mượn bảng chưa xuất giá lẻ

@@ -1,6 +1,8 @@
 import sys
 import pandas as pd
-from datetime import datetime
+import os
+import csv
+from datetime import datetime, timedelta
 from PyQt5.QtWidgets import (
     QApplication,
     QWidget,
@@ -90,6 +92,46 @@ def format_price(value):
         return str(value)
 
 
+# ✅ Hàm quản lý thư mục lưu trữ file
+def tao_thu_muc_luu_tru():
+    """Tạo thư mục để lưu file nhận hàng và tổng kết ca"""
+    base_dir = os.path.dirname(__file__)
+    data_dir = os.path.join(base_dir, "data_export")
+    nhan_hang_dir = os.path.join(data_dir, "nhan_hang")
+    tong_ket_dir = os.path.join(data_dir, "tong_ket_ca")
+    
+    # Tạo các thư mục nếu chưa tồn tại
+    os.makedirs(nhan_hang_dir, exist_ok=True)
+    os.makedirs(tong_ket_dir, exist_ok=True)
+    
+    return nhan_hang_dir, tong_ket_dir
+
+
+def xoa_file_cu(thu_muc, so_thang=3):
+    """Xóa các file cũ hơn số tháng chỉ định trong thư mục"""
+    try:
+        ngay_hien_tai = datetime.now()
+        so_ngay = so_thang * 30  # Tương đương số tháng
+        
+        for filename in os.listdir(thu_muc):
+            filepath = os.path.join(thu_muc, filename)
+            
+            # Chỉ xóa file, không xóa thư mục
+            if os.path.isfile(filepath):
+                # Lấy thời gian sửa đổi file
+                file_time = datetime.fromtimestamp(os.path.getmtime(filepath))
+                
+                # Tính số ngày từ file đến hiện tại
+                so_ngay_cu = (ngay_hien_tai - file_time).days
+                
+                # Xóa nếu file cũ hơn số tháng chỉ định
+                if so_ngay_cu > so_ngay:
+                    os.remove(filepath)
+                    print(f"Đã xóa file cũ: {filename} ({so_ngay_cu} ngày)")
+    except Exception as e:
+        print(f"Lỗi khi xóa file cũ: {e}")
+
+
 class CompleterDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -112,29 +154,32 @@ class DangNhap(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Đăng nhập - Hệ thống quản lý bán hàng")
-        
+
         # ✅ Set Window Icon cho cửa sổ đăng nhập
         try:
             import os
+
             logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
             if os.path.exists(logo_path):
                 self.setWindowIcon(QIcon(logo_path))
         except Exception as e:
             print(f"Không thể load logo: {e}")
-        
+
         self.resize(400, 300)
         layout = QVBoxLayout()
-        
+
         # ✅ Thêm logo lớn ở đầu form login
         try:
             logo_label = QLabel()
             logo_pixmap = QPixmap(logo_path)
             # Scale logo lớn hơn cho màn hình login (100x100)
-            logo_scaled = logo_pixmap.scaled(100, 100, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            logo_scaled = logo_pixmap.scaled(
+                100, 100, Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
             logo_label.setPixmap(logo_scaled)
             logo_label.setAlignment(Qt.AlignCenter)
             layout.addWidget(logo_label)
-            
+
             # Tiêu đề app
             title_label = QLabel("<h2>HỆ THỐNG QUẢN LÝ BÁN HÀNG</h2>")
             title_label.setAlignment(Qt.AlignCenter)
@@ -142,7 +187,7 @@ class DangNhap(QWidget):
             layout.addWidget(title_label)
         except Exception as e:
             print(f"Không thể hiển thị logo: {e}")
-        
+
         layout.addWidget(QLabel("Username"))
         self.user_edit = QLineEdit()
         layout.addWidget(self.user_edit)
@@ -175,9 +220,10 @@ class MainWindow(QWidget):
         self.role = role
         self.login_window = login_window
         self.last_invoice_id = None  # Lưu ID hóa đơn mới nhất trong ca
-        
+
         # Lấy username từ database
         from users import lay_tat_ca_user
+
         self.username = "User"
         try:
             users = lay_tat_ca_user()
@@ -189,16 +235,17 @@ class MainWindow(QWidget):
             pass
 
         self.setWindowTitle(f"Hệ thống quản lý bán hàng")
-        
+
         # ✅ Set Window Icon (logo trên title bar và taskbar)
         try:
             import os
+
             logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
             if os.path.exists(logo_path):
                 self.setWindowIcon(QIcon(logo_path))
         except Exception as e:
             print(f"Không thể load logo: {e}")
-        
+
         # Thiết lập kích thước cửa sổ
         self.resize(1600, 900)
         # Hiện full màn hình
@@ -210,12 +257,12 @@ class MainWindow(QWidget):
 
         # Top bar với lời chào
         top_bar = QHBoxLayout()
-        
+
         # ✅ Hiển thị lời chào username
         greeting = QLabel(f"Xin chào, <b>{self.username}</b>")
         greeting.setStyleSheet("font-size: 14pt; color: #2c3e50; margin-left: 10px;")
         top_bar.addWidget(greeting)
-        
+
         top_bar.addStretch()
         btn_doi_mk = QPushButton("Đổi mật khẩu")
         btn_doi_mk.clicked.connect(self.doi_mat_khau_click)
@@ -349,7 +396,7 @@ class MainWindow(QWidget):
             self.tbl_nhan_hang.setItem(row, 3, QTableWidgetItem(str(0)))
             # Ghi chú
             self.tbl_nhan_hang.setItem(row, 4, QTableWidgetItem(""))
-            
+
             # ✅ CẬP NHẬT available_products từ DB mới nhất (bao gồm cả số lượng đã bán)
             # Điều này đảm bảo sau khi đóng ca, tải lại danh sách sẽ thấy tồn kho đã trừ đi hàng bán
             self.available_products[ten] = ton_db
@@ -400,13 +447,14 @@ class MainWindow(QWidget):
                 status = "DƯ" if chenh > 0 else "THIẾU"
                 discrepancies.append((ten_sp, chenh, status))
 
-        # Save the check/receive report to CSV for audit
-        import csv
-
-        filename = (
-            f"nhan_hang_{self.user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-        )
-        with open(filename, "w", newline="", encoding="utf-8") as f:
+        # ✅ Lưu file nhận hàng vào thư mục riêng và xóa file cũ
+        nhan_hang_dir, _ = tao_thu_muc_luu_tru()
+        xoa_file_cu(nhan_hang_dir, so_thang=3)  # Xóa file cũ hơn 3 tháng
+        
+        filename = f"nhan_hang_{self.user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        filepath = os.path.join(nhan_hang_dir, filename)
+        
+        with open(filepath, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(
                 [
@@ -624,11 +672,11 @@ class MainWindow(QWidget):
         # Mark receiving as completed and disable the tab
         self.nhan_hang_completed = True
         self.tab_nhan_hang.setEnabled(False)
-        
+
         # ✅ Mở lại tab Bán hàng và reset trạng thái ca
         self.ca_closed = False
         self.tab_banhang.setEnabled(True)
-        
+
         # Enable the 'Lưu' button in Bán hàng so user can save/create invoices
         try:
             self.btn_luu.setEnabled(True)
@@ -2403,7 +2451,7 @@ class MainWindow(QWidget):
         data_buon = []
         data_vip = []
         data_le = []
-        
+
         for (ten, loai_gia), sl in tong_sp.items():
             if sl > 0:  # Chỉ hiển thị sản phẩm có số lượng > 0
                 if loai_gia == "buon":
@@ -2588,7 +2636,9 @@ class MainWindow(QWidget):
 
             elif loai_gia_xuat == "buon":
                 sl_can_tru = sl_xuat
-                print(f"DEBUG BUON - Sản phẩm: {ten}, Cần xuất: {sl_xuat}, Buôn có: {sl_buon}, Lẻ có: {sl_le}")
+                print(
+                    f"DEBUG BUON - Sản phẩm: {ten}, Cần xuất: {sl_xuat}, Buôn có: {sl_buon}, Lẻ có: {sl_le}"
+                )
                 if sl_buon >= sl_can_tru:
                     # Đủ từ bảng buôn
                     print(f"DEBUG BUON - Đủ từ bảng buôn")
@@ -2821,8 +2871,10 @@ class MainWindow(QWidget):
         else:  # le
             table = self.tbl_xuatbo_le
 
-        print(f"DEBUG get_sl_from_table - loai_gia: {loai_gia}, ten_sp: {ten_sp}, rowCount: {table.rowCount()}")
-        
+        print(
+            f"DEBUG get_sl_from_table - loai_gia: {loai_gia}, ten_sp: {ten_sp}, rowCount: {table.rowCount()}"
+        )
+
         for row in range(table.rowCount()):
             ten_item = table.item(row, 0)
             if ten_item:
@@ -3942,6 +3994,22 @@ class MainWindow(QWidget):
             if print_dialog.exec_() == QPrintDialog.Accepted:
                 # In nội dung HTML
                 content.document().print_(printer)
+                
+                # ✅ Lưu file HTML tổng kết ca vào thư mục riêng và xóa file cũ
+                try:
+                    _, tong_ket_dir = tao_thu_muc_luu_tru()
+                    xoa_file_cu(tong_ket_dir, so_thang=3)  # Xóa file cũ hơn 3 tháng
+                    
+                    html_filename = f"tong_ket_ca_{self.user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
+                    html_filepath = os.path.join(tong_ket_dir, html_filename)
+                    
+                    with open(html_filepath, "w", encoding="utf-8") as f:
+                        f.write(html_content)
+                    
+                    print(f"Đã lưu file tổng kết: {html_filename}")
+                except Exception as e:
+                    print(f"Lỗi khi lưu file tổng kết: {e}")
+                
                 QMessageBox.information(
                     preview_dialog, "Thành công", "Đã in báo cáo đóng ca!"
                 )
@@ -3955,6 +4023,21 @@ class MainWindow(QWidget):
                 QMessageBox.No,
             )
             if reply == QMessageBox.Yes:
+                # ✅ Lưu file tổng kết ca khi đóng ca
+                try:
+                    _, tong_ket_dir = tao_thu_muc_luu_tru()
+                    xoa_file_cu(tong_ket_dir, so_thang=3)  # Xóa file cũ hơn 3 tháng
+                    
+                    html_filename = f"tong_ket_ca_{self.user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
+                    html_filepath = os.path.join(tong_ket_dir, html_filename)
+                    
+                    with open(html_filepath, "w", encoding="utf-8") as f:
+                        f.write(html_content)
+                    
+                    print(f"Đã lưu file tổng kết: {html_filename}")
+                except Exception as e:
+                    print(f"Lỗi khi lưu file tổng kết: {e}")
+                
                 # Mark shift as closed and disable selling
                 self.ca_closed = True
                 self.tab_banhang.setEnabled(False)
@@ -3966,16 +4049,16 @@ class MainWindow(QWidget):
                 # Reset receive state to allow new receiving
                 self.nhan_hang_completed = False
                 self.tab_nhan_hang.setEnabled(True)
-                
+
                 # Xóa dữ liệu trong bảng nhận hàng để bắt đầu ca mới
                 self.tbl_nhan_hang.setRowCount(0)
-                
+
                 # Close preview
                 preview_dialog.accept()
                 QMessageBox.information(
                     self,
                     "Đóng ca thành công",
-                    "Đã đóng ca. Tab Bán hàng bị khóa.\nTab Nhận hàng đã được mở lại và xóa dữ liệu.\nVui lòng ấn 'Tải danh sách sản phẩm' để cập nhật tồn kho mới nhất.",
+                    "Đã đóng ca và lưu báo cáo. Tab Bán hàng bị khóa.\nTab Nhận hàng đã được mở lại và xóa dữ liệu.\nVui lòng ấn 'Tải danh sách sản phẩm' để cập nhật tồn kho mới nhất.",
                 )
 
         btn_print = QPushButton("In báo cáo")

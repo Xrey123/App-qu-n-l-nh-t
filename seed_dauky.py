@@ -21,9 +21,9 @@ c.execute("DELETE FROM DauKyXuatBo WHERE ten_sanpham = ?", (TEN,))
 
 # Thêm mẫu: buôn 14, lẻ 10, vip 5
 rows = [
-    (sp_id, TEN, 14.0, 'buon', sp[0][3], ngay),
-    (sp_id, TEN, 10.0, 'le',   sp[0][2], ngay),
-    (sp_id, TEN, 5.0,  'vip',  sp[0][4], ngay),
+    (sp_id, TEN, 14.0, "buon", sp[0][3], ngay),
+    (sp_id, TEN, 10.0, "le", sp[0][2], ngay),
+    (sp_id, TEN, 5.0, "vip", sp[0][4], ngay),
 ]
 for sanpham_id, ten, so_luong, loai_gia, gia, ngay in rows:
     c.execute(
