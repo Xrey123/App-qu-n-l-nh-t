@@ -42,10 +42,12 @@ def dang_nhap(username, password):
 def lay_tat_ca_user():
     conn = ket_noi()
     c = conn.cursor()
-    c.execute("SELECT id, username, role, so_du FROM Users")
-    res = c.fetchall()
-    conn.close()
-    return res
+    try:
+        c.execute("SELECT id, username, role, so_du FROM Users")
+        res = c.fetchall()
+        return res
+    finally:
+        conn.close()
 
 
 def xoa_user(user_id):
@@ -82,15 +84,23 @@ def doi_mat_khau(user_id, new_password):
 def lay_so_du(user_id):
     conn = ket_noi()
     c = conn.cursor()
-    c.execute("SELECT so_du FROM Users WHERE id=?", (user_id,))
-    r = c.fetchone()
-    conn.close()
-    return r[0] if r else 0
+    try:
+        c.execute("SELECT so_du FROM Users WHERE id=?", (user_id,))
+        r = c.fetchone()
+        return r[0] if r else 0
+    finally:
+        conn.close()
 
 
 def chuyen_tien(tu_user, den_user, so_tien, hoadon_id=None):
     """Chuyển tiền giữa 2 user. Nếu biết hoadon_id, lưu kèm vào giao dịch để theo dõi theo hóa đơn."""
     from datetime import datetime
+
+    # ✅ Validate input
+    if so_tien <= 0:
+        return False, "Số tiền phải lớn hơn 0"
+    if tu_user == den_user and hoadon_id is None:
+        return False, "Không thể chuyển tiền cho chính mình"
 
     conn = ket_noi()
     c = conn.cursor()
@@ -140,12 +150,15 @@ def lay_tong_nop_theo_hoadon(hoadon_id):
 def lay_lich_su_quy(user_id=None):
     conn = ket_noi()
     c = conn.cursor()
-    sql = "SELECT id, user_id, user_nhan_id, so_tien, ngay FROM GiaoDichQuy"
-    params = []
-    if user_id:
-        sql += " WHERE user_id=? OR user_nhan_id=?"
-        params = [user_id, user_id]
-    c.execute(sql, params)
-    res = c.fetchall()
-    conn.close()
+    try:
+        sql = "SELECT id, user_id, user_nhan_id, so_tien, ngay FROM GiaoDichQuy"
+        params = []
+        if user_id:
+            sql += " WHERE user_id=? OR user_nhan_id=?"
+            params = [user_id, user_id]
+        c.execute(sql, params)
+        res = c.fetchall()
+        return res
+    finally:
+        conn.close()
     return res

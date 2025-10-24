@@ -35,6 +35,15 @@ from get_username import lay_username
 from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
 from PyQt5.QtGui import QPainter, QDoubleValidator
 
+# Helpers
+from utils.money import MENH_GIA
+from utils.invoice import (
+    tinh_unpaid_total,
+    chon_don_gia,
+    xac_dinh_loai_gia,
+    tinh_chenh_lech,
+)
+
 # Import các hàm từ module riêng
 from users import (
     dang_nhap,
@@ -88,7 +97,8 @@ locale.setlocale(locale.LC_ALL, "en_US.UTF-8")
 def format_price(value):
     try:
         return locale.format_string("%.2f", value, grouping=True)
-    except:
+    except Exception as e:
+        print(f"Warning: Error formatting price {value}: {e}")
         return str(value)
 
 
@@ -231,8 +241,8 @@ class MainWindow(QWidget):
                 if u[0] == user_id:
                     self.username = u[1]
                     break
-        except:
-            pass
+        except Exception as e:
+            print(f"Warning: Could not load username for user_id {user_id}: {e}")
 
         self.setWindowTitle(f"Hệ thống quản lý bán hàng")
 
@@ -860,7 +870,8 @@ class MainWindow(QWidget):
 
         users = lay_tat_ca_user()
         for user in users:
-            if user[2] == "Accountant":  # user[2] là role
+            # Chấp nhận cả 'accountant' và 'Accountant'
+            if str(user[2]).lower() == "accountant":  # user[2] là role
                 user_combo.addItem(f"{user[1]} (ID: {user[0]})", user[0])
         layout.addWidget(user_label)
         layout.addWidget(user_combo)
@@ -981,8 +992,8 @@ class MainWindow(QWidget):
             QMessageBox.warning(self, "Lỗi", f"Lỗi xử lý chênh lệch: {e}")
             try:
                 conn.close()
-            except:
-                pass
+            except Exception as close_err:
+                print(f"Warning: Could not close connection: {close_err}")
 
     def init_tab_banhang(self):
         layout = QVBoxLayout()
@@ -1095,18 +1106,8 @@ class MainWindow(QWidget):
                     0
                 ]  # [id, ten, gia_le, gia_buon, gia_vip, ton_kho, nguong_buon]
                 try:
-                    nguong_buon = float(sp[6]) if sp[6] is not None else 0
-                    if is_vip:
-                        don_gia = float(sp[4])  # Giá VIP
-                        print(f"Using gia_vip: {don_gia}")  # Debug
-                    elif sl >= nguong_buon:  # Kiểm tra ngưỡng buôn
-                        don_gia = float(sp[3])  # Giá buôn
-                        print(
-                            f"Using gia_buon: {don_gia} (SL={sl}, nguong_buon={nguong_buon})"
-                        )  # Debug
-                    else:
-                        don_gia = float(sp[2])  # Giá lẻ
-                        print(f"Using gia_le: {don_gia}")  # Debug
+                    don_gia = chon_don_gia(sp, sl, is_vip)
+                    print(f"Selected don_gia: {don_gia}")  # Debug
                     self.tbl_giohang.setItem(
                         row, 2, QTableWidgetItem(format_price(don_gia))
                     )
@@ -1191,10 +1192,8 @@ class MainWindow(QWidget):
                 QMessageBox.warning(self, "Lỗi", f"Giá không hợp lệ ở dòng {row+1}")
                 return
             giam = giam_spin.value() if giam_spin else 0
-            loai_gia = (
-                "vip"
-                if vip_item.checkState() == Qt.Checked
-                else ("buon" if so_luong >= res[0][6] else "le")
+            loai_gia = xac_dinh_loai_gia(
+                so_luong, res[0][6] if len(res[0]) > 6 else 0, vip_item.checkState() == Qt.Checked
             )
             xhd = xhd_item.checkState() == Qt.Checked
             ghi_chu = ghi_chu_item.text().strip() if ghi_chu_item else ""
@@ -1271,7 +1270,8 @@ class MainWindow(QWidget):
         # Lưu lại ID hóa đơn mới nhất
         try:
             self.last_invoice_id = int(msg)
-        except:
+        except Exception as e:
+            print(f"Warning: Could not parse invoice ID '{msg}': {e}")
             self.last_invoice_id = None
 
         self.tbl_giohang.setRowCount(0)
@@ -1383,11 +1383,7 @@ class MainWindow(QWidget):
             # Tính số dư = tổng tiền các sản phẩm CHƯA xuất hóa đơn (xuat_hoa_don=0)
             hoadon_id = hd[0]
             chi_tiet = lay_chi_tiet_hoadon(hoadon_id)
-            unpaid_total = sum(
-                row[4] * row[6] - row[9]  # so_luong * gia - giam
-                for row in chi_tiet
-                if row[7] == 0  # xuat_hoa_don == 0
-            )
+            unpaid_total = tinh_unpaid_total(chi_tiet)
 
             # Lấy tổng đã nộp cho hóa đơn này (nếu GiaoDichQuy có trường hoadon_id)
             try:
@@ -1451,34 +1447,35 @@ class MainWindow(QWidget):
             tbl_da.setItem(r_idx, 3, QTableWidgetItem(format_price(row[6])))  # gia
             tong = row[4] * row[6] - row[9]  # so_luong * gia - giam
             tbl_da.setItem(r_idx, 4, QTableWidgetItem(format_price(tong)))
-            # Tính chênh lệch theo logic mới:
-            # - XHĐ=1: chênh lệch = 0 (bất kể loại giá)
-            # - Giá buôn: chênh lệch = 0
-            # - Giá lẻ: chênh lệch = (giá_lẻ - giá_buôn) * số_lượng - giảm_giá
-            if row[7] == 1:  # XHĐ=1 (bất kể loại giá)
-                chenh = 0
-            elif row[5] == "vip":  # VIP
-                chenh = 0
-            elif row[5] == "buon":  # Giá buôn
-                chenh = 0
-            elif row[5] == "le":  # Giá lẻ
-                # Lấy giá buôn từ DB để tính chênh lệch
+            # Tính chênh lệch dùng helper, lấy gia_buon khi cần
+            try:
+                lg = row[5]
+                xhd = row[7]
+                sl = row[4]
+                gia_le = row[8]
+                giam = row[9]
+            except Exception:
+                lg = None
+                xhd = 0
+                sl = 0
+                gia_le = 0
+                giam = 0
+
+            gia_buon_val = None
+            if str(lg).lower() == "le":
                 from products import tim_sanpham
 
                 sp_info = tim_sanpham(row[3])  # row[3] là tên sản phẩm
                 if sp_info:
-                    gia_buon = sp_info[0][3]  # gia_buon từ DB
-                    chenh = (row[8] - gia_buon) * row[4] - row[
-                        9
-                    ]  # (gia_le - gia_buon) * so_luong - giam
-                else:
-                    chenh = 0
-                # Debug: in ra giá trị để kiểm tra
+                    gia_buon_val = sp_info[0][3]
+            chenh = tinh_chenh_lech(lg, xhd, sl, gia_le, giam, gia_buon_val)
+            # Debug log giữ nguyên thông tin hữu ích
+            try:
                 print(
-                    f"DEBUG DA XUAT - SP: {row[3]}, gia_le: {row[8]}, gia_buon: {gia_buon if sp_info else 'N/A'}, sl: {row[4]}, giam: {row[9]}, chenh: {chenh}"
+                    f"DEBUG DA XUAT - SP: {row[3]}, gia_le: {gia_le}, gia_buon: {gia_buon_val if gia_buon_val is not None else 'N/A'}, sl: {sl}, giam: {giam}, chenh: {chenh}"
                 )
-            else:
-                chenh = 0
+            except Exception:
+                pass
             tbl_da.setItem(r_idx, 5, QTableWidgetItem(format_price(chenh)))
             ghi_chu = row[10] if len(row) > 10 else ""  # ghi_chu
             tbl_da.setItem(r_idx, 6, QTableWidgetItem(ghi_chu))
@@ -1504,34 +1501,35 @@ class MainWindow(QWidget):
             tbl_chua.setItem(r_idx, 3, QTableWidgetItem(format_price(row[6])))  # gia
             tong = row[4] * row[6] - row[9]  # so_luong * gia - giam
             tbl_chua.setItem(r_idx, 4, QTableWidgetItem(format_price(tong)))
-            # Tính chênh lệch theo logic mới:
-            # - XHĐ=1: chênh lệch = 0 (bất kể loại giá)
-            # - Giá buôn: chênh lệch = 0
-            # - Giá lẻ: chênh lệch = (giá_lẻ - giá_buôn) * số_lượng - giảm_giá
-            if row[7] == 1:  # XHĐ=1 (bất kể loại giá)
-                chenh = 0
-            elif row[5] == "vip":  # VIP
-                chenh = 0
-            elif row[5] == "buon":  # Giá buôn
-                chenh = 0
-            elif row[5] == "le":  # Giá lẻ
-                # Lấy giá buôn từ DB để tính chênh lệch
+            # Tính chênh lệch dùng helper, lấy gia_buon khi cần
+            try:
+                lg = row[5]
+                xhd = row[7]
+                sl = row[4]
+                gia_le = row[8]
+                giam = row[9]
+            except Exception:
+                lg = None
+                xhd = 0
+                sl = 0
+                gia_le = 0
+                giam = 0
+
+            gia_buon_val = None
+            if str(lg).lower() == "le":
                 from products import tim_sanpham
 
                 sp_info = tim_sanpham(row[3])  # row[3] là tên sản phẩm
                 if sp_info:
-                    gia_buon = sp_info[0][3]  # gia_buon từ DB
-                    chenh = (row[8] - gia_buon) * row[4] - row[
-                        9
-                    ]  # (gia_le - gia_buon) * so_luong - giam
-                else:
-                    chenh = 0
-                # Debug: in ra giá trị để kiểm tra
+                    gia_buon_val = sp_info[0][3]
+            chenh = tinh_chenh_lech(lg, xhd, sl, gia_le, giam, gia_buon_val)
+            # Debug log giữ nguyên thông tin hữu ích
+            try:
                 print(
-                    f"DEBUG CHUA XUAT - SP: {row[3]}, gia_le: {row[8]}, gia_buon: {gia_buon if sp_info else 'N/A'}, sl: {row[4]}, giam: {row[9]}, chenh: {chenh}"
+                    f"DEBUG CHUA XUAT - SP: {row[3]}, gia_le: {gia_le}, gia_buon: {gia_buon_val if gia_buon_val is not None else 'N/A'}, sl: {sl}, giam: {giam}, chenh: {chenh}"
                 )
-            else:
-                chenh = 0
+            except Exception:
+                pass
             tbl_chua.setItem(r_idx, 5, QTableWidgetItem(format_price(chenh)))
             ghi_chu = row[10] if len(row) > 10 else ""  # ghi_chu
             tbl_chua.setItem(r_idx, 6, QTableWidgetItem(ghi_chu))
@@ -1566,7 +1564,7 @@ class MainWindow(QWidget):
         from users import lay_tong_nop_theo_hoadon
 
         chi_tiet = lay_chi_tiet_hoadon(hoadon_id)
-        unpaid_total = sum((r[4] * r[6] - r[9]) for r in chi_tiet if r[7] == 0)
+        unpaid_total = tinh_unpaid_total(chi_tiet)
         try:
             paid = lay_tong_nop_theo_hoadon(hoadon_id)
         except Exception:
@@ -1619,9 +1617,8 @@ class MainWindow(QWidget):
         # Đếm tờ tiền
         to_tien_layout = QVBoxLayout()
         to_tien_layout.addWidget(QLabel("Đếm tờ:"))
-        menh_gia = [500000, 200000, 100000, 50000, 20000, 10000, 5000, 2000, 1000]
         self.to_tien_spins_nop_tien = []
-        for mg in menh_gia:
+        for mg in MENH_GIA:
             hl = QHBoxLayout()
             hl.addWidget(QLabel(format_price(mg)))
             spin = QSpinBox()
@@ -1739,9 +1736,8 @@ class MainWindow(QWidget):
         # Đếm tờ tiền
         to_tien_layout = QVBoxLayout()
         to_tien_layout.addWidget(QLabel("Đếm tờ:"))
-        menh_gia = [500000, 200000, 100000, 50000, 20000, 10000, 5000, 2000, 1000]
         self.to_tien_spins_phieu_thu = []
-        for mg in menh_gia:
+        for mg in MENH_GIA:
             hl = QHBoxLayout()
             hl.addWidget(QLabel(format_price(mg)))
             spin = QSpinBox()
@@ -1826,8 +1822,8 @@ class MainWindow(QWidget):
                     self.tbl_chitietban.setItem(
                         row_idx, col_idx, QTableWidgetItem(str(val))
                     )
-        except:
-            QMessageBox.warning(self, "Lỗi", "Hóa đơn ID không hợp lệ")
+        except Exception as e:
+            QMessageBox.warning(self, "Lỗi", f"Hóa đơn ID không hợp lệ: {e}")
 
     def init_tab_hoadon(self):
         layout = QVBoxLayout()
@@ -2568,8 +2564,8 @@ class MainWindow(QWidget):
                 try:
                     tien = float(tien_item.text().replace(",", ""))
                     tong += tien
-                except:
-                    pass
+                except Exception as e:
+                    print(f"Warning: Could not parse money value at row {row}: {e}")
         self.lbl_tong_xuat_bo.setText(f"Tổng: {format_price(tong)}")
 
     def xuat_bo_click(self):
@@ -2775,45 +2771,72 @@ class MainWindow(QWidget):
 
         conn = ket_noi()
         c = conn.cursor()
+        try:
+            for item in items:
+                ten = item["ten"]
+                loai_gia = item["loai_gia"]
+                so_luong_xuat = item["so_luong"]
+                # Truyền thông tin về loại giá phụ nếu có
+                loai_gia_phu = item.get("loai_gia_phu")
+                so_luong_phu = item.get("so_luong_phu", 0)
+                loai_gia_phu2 = item.get("loai_gia_phu2")
+                so_luong_phu2 = item.get("so_luong_phu2", 0)
+
+                # Kiểm tra số lượng đầu kỳ còn lại
+                c.execute(
+                    "SELECT id, so_luong FROM DauKyXuatBo WHERE ten_sanpham=? AND loai_gia=? ORDER BY id ASC",
+                    (ten, loai_gia),
+                )
+                dauky_rows = c.fetchall()
+                sl_dauky_con = sum([r[1] for r in dauky_rows])
+                sl_xuat_dauky = min(so_luong_xuat, sl_dauky_con)
+                sl_xuat_hoadon = so_luong_xuat - sl_xuat_dauky
+
+                # Nếu có số lượng đầu kỳ, trừ trong DauKyXuatBo
+                if sl_xuat_dauky > 0:
+                    sl_can_tru = sl_xuat_dauky
+                    for r in dauky_rows:
+                        if sl_can_tru <= 0:
+                            break
+                        row_id, sl_row = r
+                        tru = min(sl_row, sl_can_tru)
+                        # Trừ số lượng
+                        c.execute(
+                            "UPDATE DauKyXuatBo SET so_luong=so_luong-? WHERE id=?",
+                            (tru, row_id),
+                        )
+                        # Nếu hết số lượng thì xóa dòng
+                        c.execute(
+                            "DELETE FROM DauKyXuatBo WHERE id=? AND so_luong<=0", (row_id,)
+                        )
+                        sl_can_tru -= tru
+
+                conn.commit()
+        except Exception as e:
+            conn.rollback()
+            QMessageBox.warning(self, "Lỗi", f"Lỗi khi xử lý đầu kỳ: {e}")
+            conn.close()
+            return
+        finally:
+            conn.close()
+
+        # Nếu còn số lượng phải xuất từ hóa đơn
         for item in items:
             ten = item["ten"]
-            loai_gia = item["loai_gia"]
             so_luong_xuat = item["so_luong"]
-            # Truyền thông tin về loại giá phụ nếu có
-            loai_gia_phu = item.get("loai_gia_phu")
-            so_luong_phu = item.get("so_luong_phu", 0)
-            loai_gia_phu2 = item.get("loai_gia_phu2")
-            so_luong_phu2 = item.get("so_luong_phu2", 0)
-
-            # Kiểm tra số lượng đầu kỳ còn lại
+            
+            # Recalculate xuất hóa đơn
+            conn = ket_noi()
+            c = conn.cursor()
             c.execute(
                 "SELECT id, so_luong FROM DauKyXuatBo WHERE ten_sanpham=? AND loai_gia=? ORDER BY id ASC",
-                (ten, loai_gia),
+                (ten, item["loai_gia"]),
             )
             dauky_rows = c.fetchall()
+            conn.close()
             sl_dauky_con = sum([r[1] for r in dauky_rows])
             sl_xuat_dauky = min(so_luong_xuat, sl_dauky_con)
             sl_xuat_hoadon = so_luong_xuat - sl_xuat_dauky
-
-            # Nếu có số lượng đầu kỳ, trừ trong DauKyXuatBo
-            if sl_xuat_dauky > 0:
-                sl_can_tru = sl_xuat_dauky
-                for r in dauky_rows:
-                    if sl_can_tru <= 0:
-                        break
-                    row_id, sl_row = r
-                    tru = min(sl_row, sl_can_tru)
-                    # Trừ số lượng
-                    c.execute(
-                        "UPDATE DauKyXuatBo SET so_luong=so_luong-? WHERE id=?",
-                        (tru, row_id),
-                    )
-                    # Nếu hết số lượng thì xóa dòng
-                    c.execute(
-                        "DELETE FROM DauKyXuatBo WHERE id=? AND so_luong<=0", (row_id,)
-                    )
-                    sl_can_tru -= tru
-                conn.commit()
 
             # Nếu còn số lượng phải xuất từ hóa đơn, gọi hàm xuất bổ cũ
             if sl_xuat_hoadon > 0:
@@ -2887,8 +2910,8 @@ class MainWindow(QWidget):
                             sl = float(sl_item.text())
                             print(f"DEBUG - Found match! Returning: {sl}")
                             return sl
-                        except:
-                            print(f"DEBUG - Error parsing quantity")
+                        except Exception as e:
+                            print(f"DEBUG - Error parsing quantity: {e}")
                             return 0
         print(f"DEBUG - No match found, returning 0")
         return 0
@@ -3084,8 +3107,8 @@ class MainWindow(QWidget):
 
         try:
             so_tien = float(so_tien_str)
-        except:
-            QMessageBox.warning(self, "Lỗi", "Số tiền không hợp lệ")
+        except Exception as e:
+            QMessageBox.warning(self, "Lỗi", f"Số tiền không hợp lệ: {e}")
             return
 
         # Trừ tiền từ user hiện tại và ghi log
@@ -3128,21 +3151,17 @@ class MainWindow(QWidget):
             )
 
             conn.commit()
-            conn.close()
-
             QMessageBox.information(
                 self,
                 "Thành công",
                 f"Đã chuyển {format_price(so_tien)} từ {current_user_name} cho {den_user_name}",
             )
             self.load_so_quy()
-
         except Exception as e:
+            conn.rollback()
             QMessageBox.warning(self, "Lỗi", f"Lỗi chuyển tiền: {e}")
-            try:
-                conn.close()
-            except:
-                pass
+        finally:
+            conn.close()
 
     def print_bao_cao_cong_doan(self):
         tu_ngay = self.tu_ngay_edit.date().toString("dd/MM/yyyy")
@@ -3395,9 +3414,8 @@ class MainWindow(QWidget):
         # Đếm tờ tiền
         to_tien_layout = QVBoxLayout()
         to_tien_layout.addWidget(QLabel("Đếm tờ:"))
-        menh_gia = [500000, 200000, 100000, 50000, 20000, 10000, 5000, 2000, 1000]
         self.to_tien_spins = []
-        for mg in menh_gia:
+        for mg in MENH_GIA:
             hl = QHBoxLayout()
             hl.addWidget(QLabel(format_price(mg)))
             spin = QSpinBox()
@@ -3466,8 +3484,8 @@ class MainWindow(QWidget):
                     dialog.close()
                 else:
                     QMessageBox.warning(self, "Lỗi", msg)
-        except:
-            QMessageBox.warning(self, "Lỗi", "Dữ liệu không hợp lệ")
+        except Exception as e:
+            QMessageBox.warning(self, "Lỗi", f"Dữ liệu không hợp lệ: {e}")
 
     def in_phieu_chuyen(self):
         printer = QPrinter()
@@ -3599,14 +3617,16 @@ class MainWindow(QWidget):
         try:
             product_id = int(self.tbl_sanpham.item(row, 0).text())
             value = float(item.text().replace(",", ""))
-            field = ["gia_le", "gia_buon", "gia_vip", "ton_kho"][col - 2]
+            # ✅ Validate field name to prevent SQL injection
+            allowed_fields = ["gia_le", "gia_buon", "gia_vip", "ton_kho"]
+            field = allowed_fields[col - 2]
             conn = ket_noi()
             c = conn.cursor()
             c.execute(f"UPDATE SanPham SET {field}=? WHERE id=?", (value, product_id))
             conn.commit()
             conn.close()
-        except:
-            QMessageBox.warning(self, "Lỗi", "Giá trị không hợp lệ")
+        except Exception as e:
+            QMessageBox.warning(self, "Lỗi", f"Giá trị không hợp lệ: {e}")
 
     def import_sanpham_excel(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -3645,15 +3665,18 @@ class MainWindow(QWidget):
             ten_sp = self.tbl_nhan_hang.item(row, 0).text()
             try:
                 sl_dem = float(self.tbl_nhan_hang.item(row, 1).text())
-            except:
+            except Exception as e:
+                print(f"Warning: Invalid quantity at row {row}: {e}")
                 sl_dem = 0
             try:
                 ton_db = float(self.tbl_nhan_hang.item(row, 2).text())
-            except:
+            except Exception as e:
+                print(f"Warning: Invalid stock at row {row}: {e}")
                 ton_db = 0
             try:
                 chenh = float(self.tbl_nhan_hang.item(row, 3).text())
-            except:
+            except Exception as e:
+                print(f"Warning: Invalid difference at row {row}: {e}")
                 chenh = 0
             ghi_chu = (
                 self.tbl_nhan_hang.item(row, 4).text()
@@ -3736,7 +3759,8 @@ class MainWindow(QWidget):
             result = c.fetchone()
             tong_cong_doan = result[0] if result and result[0] else 0
             conn.close()
-        except:
+        except Exception as e:
+            print(f"Warning: Could not load tong_cong_doan: {e}")
             tong_cong_doan = 0
 
         tong_nop = 0
@@ -4228,18 +4252,16 @@ class MainWindow(QWidget):
                 )
 
             conn.commit()
-            conn.close()
 
             QMessageBox.information(
                 self, "Thành công", f"Đã cập nhật số dư cho {len(updates)} user"
             )
             self.load_nhap_sodu_users()  # Reload bảng
         except Exception as e:
+            conn.rollback()
             QMessageBox.warning(self, "Lỗi", f"Lỗi khi lưu số dư: {e}")
-            try:
-                conn.close()
-            except:
-                pass
+        finally:
+            conn.close()
 
     def load_combo_user_dau_ky(self):
         """Tải danh sách user vào combo box"""
@@ -4409,8 +4431,8 @@ class MainWindow(QWidget):
             try:
                 conn.rollback()
                 conn.close()
-            except:
-                pass
+            except Exception as close_err:
+                print(f"Warning: Could not close/rollback connection: {close_err}")
 
 
 if __name__ == "__main__":
