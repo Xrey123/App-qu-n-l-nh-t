@@ -91,6 +91,7 @@ def lay_so_du(user_id):
 def chuyen_tien(tu_user, den_user, so_tien, hoadon_id=None):
     """Chuyển tiền giữa 2 user. Nếu biết hoadon_id, lưu kèm vào giao dịch để theo dõi theo hóa đơn."""
     from datetime import datetime
+
     conn = ket_noi()
     c = conn.cursor()
     try:
@@ -127,7 +128,9 @@ def lay_tong_nop_theo_hoadon(hoadon_id):
     conn = ket_noi()
     c = conn.cursor()
     try:
-        c.execute("SELECT SUM(so_tien) FROM GiaoDichQuy WHERE hoadon_id = ?", (hoadon_id,))
+        c.execute(
+            "SELECT SUM(so_tien) FROM GiaoDichQuy WHERE hoadon_id = ?", (hoadon_id,)
+        )
         r = c.fetchone()
         return r[0] if r and r[0] is not None else 0
     finally:

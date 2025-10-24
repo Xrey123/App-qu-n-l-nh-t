@@ -106,7 +106,9 @@ def tao_hoa_don(user_id, khach_hang, items, uu_dai, xuat_hoa_don, giam_gia):
             chenh_lech = 0
             if loai_gia == "le":
                 # Lấy cả giá lẻ và giá buôn
-                c.execute("SELECT gia_le, gia_buon FROM SanPham WHERE id = ?", (sanpham_id,))
+                c.execute(
+                    "SELECT gia_le, gia_buon FROM SanPham WHERE id = ?", (sanpham_id,)
+                )
                 result = c.fetchone()
                 if result:
                     gia_le_db, gia_buon_db = result
@@ -129,7 +131,9 @@ def tao_hoa_don(user_id, khach_hang, items, uu_dai, xuat_hoa_don, giam_gia):
             # Logic: VIP=0, Buôn=0, Lẻ=(giá_lẻ - giá_buôn)*số_lượng - giảm_giá
             chenh_lech = 0
             if loai_gia == "le":
-                c.execute("SELECT gia_le, gia_buon FROM SanPham WHERE id = ?", (sanpham_id,))
+                c.execute(
+                    "SELECT gia_le, gia_buon FROM SanPham WHERE id = ?", (sanpham_id,)
+                )
                 result = c.fetchone()
                 if result:
                     gia_le_db, gia_buon_db = result

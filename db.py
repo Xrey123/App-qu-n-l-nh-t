@@ -22,6 +22,20 @@ def khoi_tao_db():
         print("Lỗi khi thêm cột ghi_chu vào GiaoDichQuy:", e)
     finally:
         conn.close()
+    
+    # Tự động thêm cột loai_gia vào LogKho nếu chưa có
+    try:
+        conn = ket_noi()
+        c = conn.cursor()
+        c.execute("PRAGMA table_info(LogKho)")
+        columns = [row[1] for row in c.fetchall()]
+        if "loai_gia" not in columns:
+            c.execute("ALTER TABLE LogKho ADD COLUMN loai_gia TEXT")
+            conn.commit()
+    except Exception as e:
+        print("Lỗi khi thêm cột loai_gia vào LogKho:", e)
+    finally:
+        conn.close()
     conn = ket_noi()
     c = conn.cursor()
 
@@ -104,6 +118,7 @@ def khoi_tao_db():
             ton_sau REAL,
             gia_ap_dung REAL,
             chenh_lech_cong_doan REAL DEFAULT 0,
+            loai_gia TEXT,
             FOREIGN KEY(sanpham_id) REFERENCES SanPham(id),
             FOREIGN KEY(user_id) REFERENCES Users(id)
         )
@@ -168,6 +183,25 @@ def khoi_tao_db():
         )
         """
     )
+    
+    # Bảng đầu kỳ xuất bỏ (để theo dõi số lượng có thể xuất theo từng loại giá)
+    c.execute(
+        """
+        CREATE TABLE IF NOT EXISTS DauKyXuatBo (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            sanpham_id INTEGER,
+            ten_sanpham TEXT,
+            so_luong REAL,
+            loai_gia TEXT,
+            gia REAL,
+            ngay TEXT,
+            FOREIGN KEY(user_id) REFERENCES Users(id),
+            FOREIGN KEY(sanpham_id) REFERENCES SanPham(id)
+        )
+        """
+    )
+    
     conn.commit()
     conn.close()
 

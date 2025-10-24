@@ -416,25 +416,53 @@ def xuat_bo_san_pham_theo_ten(
                 "VALUES (?, ?, ?, ?, ?)",
                 (sanpham_id, user_id, ngay, sl_chinh, chenh_lech),
             )
+            # Ghi log vào LogKho cho loại giá chính
+            c.execute(
+                "INSERT INTO LogKho (sanpham_id, user_id, ngay, hanh_dong, so_luong, ton_truoc, ton_sau, gia_ap_dung, chenh_lech_cong_doan, loai_gia) "
+                "VALUES (?, ?, ?, 'xuatbo', ?, 0, 0, 0, ?, ?)",
+                (sanpham_id, user_id, ngay, sl_chinh, chenh_lech, loai_gia),
+            )
         
         # Tính chênh lệch công đoàn theo yêu cầu mới
-        if loai_gia == "vip" and so_luong_phu > 0:
-            # Chênh lệch = (giá buôn - giá VIP) x số lượng mượn chưa xuất giá buôn
-            chenh_buon = gia_buon - gia_vip
-            c.execute(
-                "INSERT INTO CongDoan (sanpham_id, user_id, ngay, so_luong, chenh_lech) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (sanpham_id, user_id, ngay, so_luong_phu, chenh_buon),
-            )
-            
-        if loai_gia == "vip" and so_luong_phu2 > 0:
-            # Chênh lệch = (giá lẻ - giá VIP) x số lượng mượn bảng chưa xuất giá lẻ
-            chenh_le = gia_le - gia_vip
-            c.execute(
-                "INSERT INTO CongDoan (sanpham_id, user_id, ngay, so_luong, chenh_lech) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (sanpham_id, user_id, ngay, so_luong_phu2, chenh_le),
-            )
+        # Xử lý loại giá phụ cho cả "buon" và "vip"
+        if so_luong_phu > 0 and loai_gia_phu:
+            if loai_gia == "vip":
+                # Chênh lệch = (giá buôn - giá VIP) x số lượng mượn chưa xuất giá buôn
+                chenh_buon = gia_buon - gia_vip
+                c.execute(
+                    "INSERT INTO CongDoan (sanpham_id, user_id, ngay, so_luong, chenh_lech) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (sanpham_id, user_id, ngay, so_luong_phu, chenh_buon),
+                )
+                # Ghi log vào LogKho cho loại giá phụ (buôn)
+                c.execute(
+                    "INSERT INTO LogKho (sanpham_id, user_id, ngay, hanh_dong, so_luong, ton_truoc, ton_sau, gia_ap_dung, chenh_lech_cong_doan, loai_gia) "
+                    "VALUES (?, ?, ?, 'xuatbo', ?, 0, 0, 0, ?, ?)",
+                    (sanpham_id, user_id, ngay, so_luong_phu, chenh_buon, loai_gia_phu),
+                )
+            elif loai_gia == "buon" and loai_gia_phu == "le":
+                # Xuất buôn từ giá lẻ - không có chênh lệch công đoạn
+                c.execute(
+                    "INSERT INTO LogKho (sanpham_id, user_id, ngay, hanh_dong, so_luong, ton_truoc, ton_sau, gia_ap_dung, chenh_lech_cong_doan, loai_gia) "
+                    "VALUES (?, ?, ?, 'xuatbo', ?, 0, 0, 0, 0, ?)",
+                    (sanpham_id, user_id, ngay, so_luong_phu, loai_gia_phu),
+                )
+        
+        if so_luong_phu2 > 0 and loai_gia_phu2:
+            if loai_gia == "vip":
+                # Chênh lệch = (giá lẻ - giá VIP) x số lượng mượn bảng chưa xuất giá lẻ
+                chenh_le = gia_le - gia_vip
+                c.execute(
+                    "INSERT INTO CongDoan (sanpham_id, user_id, ngay, so_luong, chenh_lech) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (sanpham_id, user_id, ngay, so_luong_phu2, chenh_le),
+                )
+                # Ghi log vào LogKho cho loại giá phụ 2 (lẻ)
+                c.execute(
+                    "INSERT INTO LogKho (sanpham_id, user_id, ngay, hanh_dong, so_luong, ton_truoc, ton_sau, gia_ap_dung, chenh_lech_cong_doan, loai_gia) "
+                    "VALUES (?, ?, ?, 'xuatbo', ?, 0, 0, 0, ?, ?)",
+                    (sanpham_id, user_id, ngay, so_luong_phu2, chenh_le, loai_gia_phu2),
+                )
 
         # Cập nhật số dư user: trừ so_du
         tong_tien_giam = tong_tien_xuat + (so_luong_xuat * chenh_lech)
