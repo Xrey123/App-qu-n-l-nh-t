@@ -17,3 +17,4 @@ git add .
 :: Commit với thời gian
 set "msg=Auto save on %date% %time%"
 git commit -m "%msg%" >nul 2>&1
+git push
