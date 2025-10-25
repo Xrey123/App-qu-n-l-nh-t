@@ -2053,6 +2053,37 @@ class MainWindow(QWidget):
             )
             san_pham_list = c.fetchall()
 
+            # Sắp xếp theo thứ tự tùy chỉnh (các tên không có trong danh sách sẽ đứng sau, theo ABC)
+            custom_order = [
+                "PLC KOMAT SUPER 20W/40 200 lít",
+                "PLC KOMAT SUPER 20W/50 200 lít",
+                "PLC RACER PLUS 4 lít",
+                "PLC RACER 2T 1 lít",
+                "PLC RACER SF 0.8 lít",
+                "PLC RACER SF 1 lít",
+                "PLC RACER SJ 1 lít",
+                "PLC RACER SCOOTER 0.8 lít",
+                "PLC KOMAT SHD/40 18 lít",
+                "PLC KOMAT SHD 40 4 lít",
+                "PLC KOMAT SHD/50 18 lít",
+                "PLC KOMAT SHD/50 25 lít",
+                "PLC CACER CI-4 15W/40 5 lít",
+                "PLC CARTER CI-4 15W/40 18 lít",
+                "PLC KOMAT SHD/40 25 lít",
+                "PCL GEAR OIL MP 90EP 4 lít",
+                "PLC GEAR OIL MP 140EP 4 lít",
+                "PLC-AW HYDROIL 68 209 lít",
+                "PLC-AW HYDROIL 68 18 lít",
+            ]
+            order_map = {name: idx for idx, name in enumerate(custom_order)}
+            def _sort_key(sp_row):
+                ten_sp = sp_row[1] or ""
+                return (order_map.get(ten_sp, 10_000), ten_sp)
+            try:
+                san_pham_list.sort(key=_sort_key)
+            except Exception:
+                pass
+
             # Chuẩn bị data cho bảng
             table_data = []
             for sp in san_pham_list:
@@ -2069,27 +2100,60 @@ class MainWindow(QWidget):
                 )
                 sl_xhd = c.fetchone()[0] or 0
 
-                # Lấy số lượng đã xuất bổ
-                c.execute(
-                    """
-                    SELECT COALESCE(SUM(so_luong), 0)
-                    FROM LogKho 
-                    WHERE sanpham_id = ? AND hanh_dong = 'xuat'
-                """,
-                    (sp_id,),
-                )
-                sl_xuat_bo = c.fetchone()[0] or 0
+                # Lấy số lượng đã xuất bổ (chuẩn hóa theo 'xuatbo' mới, vẫn hỗ trợ dữ liệu cũ)
+                try:
+                    c.execute(
+                        """
+                        SELECT COALESCE(SUM(so_luong), 0)
+                        FROM LogKho 
+                        WHERE sanpham_id = ? AND hanh_dong IN ('xuatbo','xuat_bo')
+                    """,
+                        (sp_id,),
+                    )
+                    sl_xuat_bo = c.fetchone()[0] or 0
+                except Exception:
+                    # Fallback: một số DB cũ có thể dùng 'xuat'
+                    c.execute(
+                        """
+                        SELECT COALESCE(SUM(so_luong), 0)
+                        FROM LogKho 
+                        WHERE sanpham_id = ? AND hanh_dong = 'xuat'
+                    """,
+                        (sp_id,),
+                    )
+                    sl_xuat_bo = c.fetchone()[0] or 0
 
                 # Lấy số lượng chưa xuất
-                c.execute(
-                    """
-                    SELECT COALESCE(SUM(so_luong), 0)
-                    FROM ChiTietHoaDon 
-                    WHERE sanpham_id = ? AND xuat_hoa_don = 0
-                """,
-                    (sp_id,),
-                )
-                sl_chua_xuat = c.fetchone()[0] or 0
+                # Gồm: (1) số lượng bán chưa xuất từ ChiTietHoaDon (xuat_hoa_don=0)
+                #      (2) số lượng đầu kỳ (DauKyXuatBo) còn lại
+                try:
+                    c.execute(
+                        """
+                        SELECT COALESCE(SUM(so_luong), 0)
+                        FROM ChiTietHoaDon 
+                        WHERE sanpham_id = ? AND xuat_hoa_don = 0
+                        """,
+                        (sp_id,),
+                    )
+                    sl_chua_xuat_cthd = c.fetchone()[0] or 0
+                except Exception:
+                    sl_chua_xuat_cthd = 0
+
+                # DauKyXuatBo: dùng sanpham_id để cộng dồn số lượng đầu kỳ còn tồn
+                try:
+                    c.execute(
+                        """
+                        SELECT COALESCE(SUM(so_luong), 0)
+                        FROM DauKyXuatBo
+                        WHERE sanpham_id = ?
+                        """,
+                        (sp_id,),
+                    )
+                    sl_dau_ky = c.fetchone()[0] or 0
+                except Exception:
+                    sl_dau_ky = 0
+
+                sl_chua_xuat = (sl_chua_xuat_cthd or 0) + (sl_dau_ky or 0)
 
                 # SYS = tồn kho hiện tại + số lượng chưa xuất hóa đơn
                 # (theo yêu cầu: SYS = kho + số lượng chưa xuất hóa đơn)
@@ -2123,12 +2187,12 @@ class MainWindow(QWidget):
                 # Debug print to console so you can verify values easily
                 try:
                     print(
-                        f"BAOCAOKHO: {ten} | ton_kho={ton_kho} | sl_xhd={sl_xhd} | sl_xuat_bo={sl_xuat_bo} | sl_chua_xuat={sl_chua_xuat} | SYS={sys_val}"
+                        f"BAOCAOKHO: {ten} | ton_kho={ton_kho} | sl_xhd={sl_xhd} | sl_xuat_bo={sl_xuat_bo} | sl_chua_xuat(cthd+dk)={sl_chua_xuat} | SYS={sys_val}"
                     )
                 except Exception:
                     pass
 
-            # Hiển thị dữ liệu
+            # Hiển thị dữ liệu (đã sắp xếp theo thứ tự tùy chỉnh ở trên)
             self.tbl_baocao_kho.setRowCount(len(table_data))
             for row_idx, row_data in enumerate(table_data):
                 for col_idx, val in enumerate(row_data):
