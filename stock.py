@@ -1,72 +1,59 @@
-import sqlite3
 from datetime import datetime
 from db import ket_noi
+from utils.db_helpers import execute_query, db_transaction
 
 
 def cap_nhat_kho_sau_ban(sanpham_id, so_luong, user_id, gia_ap_dung, chenh_lech=0):
     try:
-        conn = ket_noi()
-        c = conn.cursor()
+        with db_transaction() as (conn, c):
+            # Kiểm tra tồn kho
+            c.execute("SELECT ton_kho FROM SanPham WHERE id = ?", (sanpham_id,))
+            result = c.fetchone()
+            if not result:
+                return False, f"Sản phẩm ID {sanpham_id} không tồn tại"
+            ton_kho = result[0]
 
-        # Kiểm tra tồn kho
-        c.execute("SELECT ton_kho FROM SanPham WHERE id = ?", (sanpham_id,))
-        result = c.fetchone()
-        if not result:
-            return False, f"Sản phẩm ID {sanpham_id} không tồn tại"
-        ton_kho = result[0]
+            if ton_kho < so_luong:
+                return False, f"Tồn kho không đủ: chỉ còn {ton_kho}, yêu cầu {so_luong}"
 
-        if ton_kho < so_luong:
-            return False, f"Tồn kho không đủ: chỉ còn {ton_kho}, yêu cầu {so_luong}"
+            # Cập nhật tồn kho
+            c.execute(
+                "UPDATE SanPham SET ton_kho = ton_kho - ? WHERE id = ?",
+                (so_luong, sanpham_id),
+            )
 
-        # Cập nhật tồn kho
-        c.execute(
-            "UPDATE SanPham SET ton_kho = ton_kho - ? WHERE id = ?",
-            (so_luong, sanpham_id),
-        )
+            # Ghi log kho với chenh_lech_cong_doan
+            ngay = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            c.execute("SELECT ton_kho FROM SanPham WHERE id = ?", (sanpham_id,))
+            ton_sau = c.fetchone()[0]  # ton_sau sau update
+            ton_truoc = ton_kho  # ton_truoc trước update
+            c.execute(
+                "INSERT INTO LogKho (sanpham_id, user_id, ngay, hanh_dong, so_luong, ton_truoc, ton_sau, gia_ap_dung, chenh_lech_cong_doan) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    sanpham_id,
+                    user_id,
+                    ngay,
+                    "xuat",
+                    so_luong,
+                    ton_truoc,
+                    ton_sau,
+                    gia_ap_dung,
+                    chenh_lech,
+                ),
+            )
 
-        # Ghi log kho với chenh_lech_cong_doan
-        ngay = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        c.execute("SELECT ton_kho FROM SanPham WHERE id = ?", (sanpham_id,))
-        ton_sau = c.fetchone()[0]  # ton_sau sau update
-        ton_truoc = ton_kho  # ton_truoc trước update
-        c.execute(
-            "INSERT INTO LogKho (sanpham_id, user_id, ngay, hanh_dong, so_luong, ton_truoc, ton_sau, gia_ap_dung, chenh_lech_cong_doan) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                sanpham_id,
-                user_id,
-                ngay,
-                "xuat",
-                so_luong,
-                ton_truoc,
-                ton_sau,
-                gia_ap_dung,
-                chenh_lech,
-            ),
-        )
-
-        conn.commit()
         return True, "Cập nhật kho thành công"
     except Exception as e:
-        conn.rollback()
         return False, f"Lỗi cập nhật kho: {str(e)}"
-    finally:
-        print("Closing conn in cap_nhat_kho_sau_ban")
-        conn.close()
 
 
 def lay_san_pham_chua_xuat():
-    try:
-        conn = ket_noi()
-        c = conn.cursor()
-        c.execute(
-            "SELECT c.hoadon_id, c.sanpham_id, s.ten, c.so_luong, c.loai_gia, c.gia "
-            "FROM ChiTietHoaDon c JOIN SanPham s ON c.sanpham_id = s.id "
-            "WHERE c.xuat_hoa_don = 0"
-        )
-        return c.fetchall()
-    finally:
-        print("Closing conn in lay_san_pham_chua_xuat")
-        conn.close()
+    return execute_query(
+        "SELECT c.hoadon_id, c.sanpham_id, s.ten, c.so_luong, c.loai_gia, c.gia "
+        "FROM ChiTietHoaDon c JOIN SanPham s ON c.sanpham_id = s.id "
+        "WHERE c.xuat_hoa_don = 0",
+        fetch_all=True,
+    ) or []
 
 
 def lay_san_pham_chua_xuat_theo_loai_gia(loai_gia):
@@ -74,59 +61,46 @@ def lay_san_pham_chua_xuat_theo_loai_gia(loai_gia):
     Lấy tổng số lượng sản phẩm chưa xuất hóa đơn theo loại giá
     Returns: [(ten_san_pham, tong_so_luong), ...]
     """
-    try:
-        conn = ket_noi()
-        c = conn.cursor()
-        c.execute(
-            """
-            SELECT s.ten, SUM(c.so_luong) as tong_sl
-            FROM ChiTietHoaDon c
-            JOIN SanPham s ON c.sanpham_id = s.id
-            WHERE c.xuat_hoa_don = 0 AND c.loai_gia = ?
-            GROUP BY s.ten
-            ORDER BY s.ten
-            """,
-            (loai_gia,),
-        )
-        return c.fetchall()
-    finally:
-        print("Closing conn in lay_san_pham_chua_xuat_theo_loai_gia")
-        conn.close()
+    return execute_query(
+        """
+        SELECT s.ten, SUM(c.so_luong) as tong_sl
+        FROM ChiTietHoaDon c
+        JOIN SanPham s ON c.sanpham_id = s.id
+        WHERE c.xuat_hoa_don = 0 AND c.loai_gia = ?
+        GROUP BY s.ten
+        ORDER BY s.ten
+        """,
+        (loai_gia,),
+        fetch_all=True,
+    ) or []
 
 
 def xuat_bo_san_pham(hoadon_id, sanpham_id, user_id, so_luong, gia, chenh_lech):
     try:
-        conn = ket_noi()
-        c = conn.cursor()
+        with db_transaction() as (conn, c):
+            # Cập nhật trạng thái xuất hóa đơn
+            c.execute(
+                "UPDATE ChiTietHoaDon SET xuat_hoa_don = 1 WHERE hoadon_id = ? AND sanpham_id = ?",
+                (hoadon_id, sanpham_id),
+            )
 
-        # Cập nhật trạng thái xuất hóa đơn
-        c.execute(
-            "UPDATE ChiTietHoaDon SET xuat_hoa_don = 1 WHERE hoadon_id = ? AND sanpham_id = ?",
-            (hoadon_id, sanpham_id),
-        )
+            # Ghi log công đoạn
+            ngay = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            c.execute(
+                "INSERT INTO CongDoan (sanpham_id, user_id, ngay, so_luong, chenh_lech) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (sanpham_id, user_id, ngay, so_luong, chenh_lech),
+            )
 
-        # Ghi log công đoạn
-        ngay = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        c.execute(
-            "INSERT INTO CongDoan (sanpham_id, user_id, ngay, so_luong, chenh_lech) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (sanpham_id, user_id, ngay, so_luong, chenh_lech),
-        )
+            # Cập nhật số dư user: trừ so_du (giảm khi xuất bổ)
+            tong_tien = so_luong * (gia + chenh_lech)
+            c.execute(
+                "UPDATE Users SET so_du = so_du - ? WHERE id = ?", (tong_tien, user_id)
+            )
 
-        # Cập nhật số dư user: trừ so_du (giảm khi xuất bổ)
-        tong_tien = so_luong * (gia + chenh_lech)
-        c.execute(
-            "UPDATE Users SET so_du = so_du - ? WHERE id = ?", (tong_tien, user_id)
-        )
-
-        conn.commit()
         return True, "Xuất bổ thành công"
     except Exception as e:
-        conn.rollback()
         return False, f"Lỗi xuất bổ: {str(e)}"
-    finally:
-        print("Closing conn in xuat_bo_san_pham")
-        conn.close()
 
 
 def xuat_bo_san_pham_theo_ten(
@@ -150,99 +124,54 @@ def xuat_bo_san_pham_theo_ten(
     - Giá VIP: ưu tiên bảng giá VIP trước, không đủ qua bảng chưa xuất giá buôn, hiện thông báo xác nhận mượn
     """
     try:
-        conn = ket_noi()
-        c = conn.cursor()
-
-        # Lấy thông tin sản phẩm với giá các loại
-        c.execute(
-            "SELECT id, gia_vip, gia_buon, gia_le FROM SanPham WHERE ten = ?",
-            (ten_sanpham,),
-        )
-        result = c.fetchone()
-        if not result:
-            return False, f"Sản phẩm '{ten_sanpham}' không tồn tại"
-        sanpham_id, gia_vip, gia_buon, gia_le = result
-
-        # Lấy các chi tiết hóa đơn chưa xuất theo loại giá chính (FIFO - cũ nhất trước)
-        c.execute(
-            """
-            SELECT c.id, c.hoadon_id, c.so_luong, c.gia
-            FROM ChiTietHoaDon c
-            JOIN HoaDon h ON c.hoadon_id = h.id
-            WHERE c.sanpham_id = ? AND c.loai_gia = ? AND c.xuat_hoa_don = 0
-            ORDER BY h.ngay ASC
-            """,
-            (sanpham_id, loai_gia),
-        )
-        chi_tiet_list = c.fetchall()
-
-        if not chi_tiet_list:
-            return (
-                False,
-                f"Không có sản phẩm '{ten_sanpham}' với loại giá '{loai_gia}' chưa xuất",
+        with db_transaction() as (conn, c):
+            # Lấy thông tin sản phẩm với giá các loại
+            c.execute(
+                "SELECT id, gia_vip, gia_buon, gia_le FROM SanPham WHERE ten = ?",
+                (ten_sanpham,),
             )
+            result = c.fetchone()
+            if not result:
+                return False, f"Sản phẩm '{ten_sanpham}' không tồn tại"
+            sanpham_id, gia_vip, gia_buon, gia_le = result
 
-        # Tính tổng số lượng có sẵn từ loại giá chính
-        tong_sl_co_san = sum(row[2] for row in chi_tiet_list)
+            # Lấy các chi tiết hóa đơn chưa xuất theo loại giá chính (FIFO - cũ nhất trước)
+            c.execute(
+                """
+                SELECT c.id, c.hoadon_id, c.so_luong, c.gia
+                FROM ChiTietHoaDon c
+                JOIN HoaDon h ON c.hoadon_id = h.id
+                WHERE c.sanpham_id = ? AND c.loai_gia = ? AND c.xuat_hoa_don = 0
+                ORDER BY h.ngay ASC
+                """,
+                (sanpham_id, loai_gia),
+            )
+            chi_tiet_list = c.fetchall()
 
-        # Logic mới theo yêu cầu
-        if loai_gia == "le":
-            # Giá lẻ: chỉ lấy từ bảng chưa xuất giá lẻ
-            if tong_sl_co_san < so_luong_xuat:
+            if not chi_tiet_list:
                 return (
                     False,
-                    f"Sản phẩm '{ten_sanpham}' không đủ số lượng giá lẻ (có {tong_sl_co_san}, cần {so_luong_xuat})",
+                    f"Không có sản phẩm '{ten_sanpham}' với loại giá '{loai_gia}' chưa xuất",
                 )
 
-        elif loai_gia == "buon":
-            # Giá buôn: ưu tiên bảng chưa xuất giá buôn trước, không đủ thì lấy từ bảng chưa xuất giá lẻ
-            if tong_sl_co_san < so_luong_xuat:
-                sl_thieu = so_luong_xuat - tong_sl_co_san
+            # Tính tổng số lượng có sẵn từ loại giá chính
+            tong_sl_co_san = sum(row[2] for row in chi_tiet_list)
 
-                # Kiểm tra số lượng từ giá lẻ
-                c.execute(
-                    """
-                    SELECT SUM(c.so_luong)
-                    FROM ChiTietHoaDon c
-                    WHERE c.sanpham_id = ? AND c.loai_gia = 'le' AND c.xuat_hoa_don = 0
-                    """,
-                    (sanpham_id,),
-                )
-                sl_le_co = c.fetchone()[0] or 0
-
-                if sl_le_co < sl_thieu:
+            # Logic mới theo yêu cầu
+            if loai_gia == "le":
+                # Giá lẻ: chỉ lấy từ bảng chưa xuất giá lẻ
+                if tong_sl_co_san < so_luong_xuat:
                     return (
                         False,
-                        f"Sản phẩm '{ten_sanpham}' không đủ số lượng (buôn: {tong_sl_co_san}, lẻ: {sl_le_co}, cần: {so_luong_xuat})",
+                        f"Sản phẩm '{ten_sanpham}' không đủ số lượng giá lẻ (có {tong_sl_co_san}, cần {so_luong_xuat})",
                     )
 
-                # Lưu thông tin để lấy từ giá lẻ
-                loai_gia_phu = "le"
-                so_luong_phu = sl_thieu
+            elif loai_gia == "buon":
+                # Giá buôn: ưu tiên bảng chưa xuất giá buôn trước, không đủ thì lấy từ bảng chưa xuất giá lẻ
+                if tong_sl_co_san < so_luong_xuat:
+                    sl_thieu = so_luong_xuat - tong_sl_co_san
 
-        elif loai_gia == "vip":
-            # Giá VIP: ưu tiên bảng giá VIP trước, không đủ qua bảng chưa xuất giá buôn, hiện thông báo xác nhận mượn
-            if tong_sl_co_san < so_luong_xuat:
-                sl_thieu = so_luong_xuat - tong_sl_co_san
-
-                # Kiểm tra số lượng từ giá buôn
-                c.execute(
-                    """
-                    SELECT SUM(c.so_luong)
-                    FROM ChiTietHoaDon c
-                    WHERE c.sanpham_id = ? AND c.loai_gia = 'buon' AND c.xuat_hoa_don = 0
-                    """,
-                    (sanpham_id,),
-                )
-                sl_buon_co = c.fetchone()[0] or 0
-
-                if sl_buon_co > 0:
-                    loai_gia_phu = "buon"
-                    so_luong_phu = min(sl_thieu, sl_buon_co)
-                    sl_thieu -= so_luong_phu
-
-                # Nếu vẫn thiếu, kiểm tra số lượng từ giá lẻ
-                if sl_thieu > 0:
+                    # Kiểm tra số lượng từ giá lẻ
                     c.execute(
                         """
                         SELECT SUM(c.so_luong)
@@ -253,18 +182,61 @@ def xuat_bo_san_pham_theo_ten(
                     )
                     sl_le_co = c.fetchone()[0] or 0
 
-                    if sl_le_co > 0:
-                        loai_gia_phu2 = "le"
-                        so_luong_phu2 = min(sl_thieu, sl_le_co)
-                        sl_thieu -= so_luong_phu2
+                    if sl_le_co < sl_thieu:
+                        return (
+                            False,
+                            f"Sản phẩm '{ten_sanpham}' không đủ số lượng (buôn: {tong_sl_co_san}, lẻ: {sl_le_co}, cần: {so_luong_xuat})",
+                        )
 
-                # Kiểm tra tổng số lượng
-                tong_sl_co = tong_sl_co_san + so_luong_phu + so_luong_phu2
-                if tong_sl_co < so_luong_xuat:
-                    return (
-                        False,
-                        f"Không đủ số lượng (VIP: {tong_sl_co_san}, buôn: {so_luong_phu}, lẻ: {so_luong_phu2}, cần: {so_luong_xuat})",
+                    # Lưu thông tin để lấy từ giá lẻ
+                    loai_gia_phu = "le"
+                    so_luong_phu = sl_thieu
+
+            elif loai_gia == "vip":
+                # Giá VIP: ưu tiên bảng giá VIP trước, không đủ qua bảng chưa xuất giá buôn, hiện thông báo xác nhận mượn
+                if tong_sl_co_san < so_luong_xuat:
+                    sl_thieu = so_luong_xuat - tong_sl_co_san
+
+                    # Kiểm tra số lượng từ giá buôn
+                    c.execute(
+                        """
+                        SELECT SUM(c.so_luong)
+                        FROM ChiTietHoaDon c
+                        WHERE c.sanpham_id = ? AND c.loai_gia = 'buon' AND c.xuat_hoa_don = 0
+                        """,
+                        (sanpham_id,),
                     )
+                    sl_buon_co = c.fetchone()[0] or 0
+
+                    if sl_buon_co > 0:
+                        loai_gia_phu = "buon"
+                        so_luong_phu = min(sl_thieu, sl_buon_co)
+                        sl_thieu -= so_luong_phu
+
+                    # Nếu vẫn thiếu, kiểm tra số lượng từ giá lẻ
+                    if sl_thieu > 0:
+                        c.execute(
+                            """
+                            SELECT SUM(c.so_luong)
+                            FROM ChiTietHoaDon c
+                            WHERE c.sanpham_id = ? AND c.loai_gia = 'le' AND c.xuat_hoa_don = 0
+                            """,
+                            (sanpham_id,),
+                        )
+                        sl_le_co = c.fetchone()[0] or 0
+
+                        if sl_le_co > 0:
+                            loai_gia_phu2 = "le"
+                            so_luong_phu2 = min(sl_thieu, sl_le_co)
+                            sl_thieu -= so_luong_phu2
+
+                    # Kiểm tra tổng số lượng
+                    tong_sl_co = tong_sl_co_san + so_luong_phu + so_luong_phu2
+                    if tong_sl_co < so_luong_xuat:
+                        return (
+                            False,
+                            f"Không đủ số lượng (VIP: {tong_sl_co_san}, buôn: {so_luong_phu}, lẻ: {so_luong_phu2}, cần: {so_luong_xuat})",
+                        )
 
         # Xuất bổ theo FIFO từ loại giá chính
         so_luong_con_lai = so_luong_xuat
@@ -494,54 +466,36 @@ def xuat_bo_san_pham_theo_ten(
                     (hoadon_id,),
                 )
 
-        conn.commit()
         return True, f"Xuất bổ thành công {so_luong_xuat} {ten_sanpham}"
     except Exception as e:
-        conn.rollback()
         return False, f"Lỗi xuất bổ: {str(e)}"
-    finally:
-        print("Closing conn in xuat_bo_san_pham_theo_ten")
-        conn.close()
 
 
 def lay_tong_chua_xuat_theo_sp():
-    try:
-        conn = ket_noi()
-        c = conn.cursor()
-        c.execute(
-            "SELECT s.id, s.ten, SUM(c.so_luong) "
-            "FROM ChiTietHoaDon c JOIN SanPham s ON c.sanpham_id = s.id "
-            "WHERE c.xuat_hoa_don = 0 GROUP BY s.id, s.ten"
-        )
-        return c.fetchall()
-    finally:
-        print("Closing conn in lay_tong_chua_xuat_theo_sp")
-        conn.close()
+    return execute_query(
+        "SELECT s.id, s.ten, SUM(c.so_luong) "
+        "FROM ChiTietHoaDon c JOIN SanPham s ON c.sanpham_id = s.id "
+        "WHERE c.xuat_hoa_don = 0 GROUP BY s.id, s.ten",
+        fetch_all=True,
+    ) or []
 
 
 def lay_bao_cao_cong_doan(tu_ngay=None, den_ngay=None):
-    try:
-        conn = ket_noi()
-        c = conn.cursor()
-        sql = "SELECT id, sanpham_id, user_id, ngay, so_luong, chenh_lech FROM CongDoan WHERE 1=1"
-        params = []
-        if tu_ngay:
-            sql += " AND ngay >= ?"
-            params.append(tu_ngay)
-        if den_ngay:
-            sql += " AND ngay <= ?"
-            params.append(den_ngay)
-        c.execute(sql, params)
-        data = c.fetchall()
+    sql = "SELECT id, sanpham_id, user_id, ngay, so_luong, chenh_lech FROM CongDoan WHERE 1=1"
+    params = []
+    if tu_ngay:
+        sql += " AND ngay >= ?"
+        params.append(tu_ngay)
+    if den_ngay:
+        sql += " AND ngay <= ?"
+        params.append(den_ngay)
+    data = execute_query(sql, tuple(params) if params else None, fetch_all=True) or []
 
-        sql_tong = "SELECT SUM(chenh_lech * so_luong) FROM CongDoan WHERE 1=1"
-        if tu_ngay:
-            sql_tong += " AND ngay >= ?"
-        if den_ngay:
-            sql_tong += " AND ngay <= ?"
-        c.execute(sql_tong, params)
-        tong = c.fetchone()[0] or 0
-        return data, tong
-    finally:
-        print("Closing conn in lay_bao_cao_cong_doan")
-        conn.close()
+    sql_tong = "SELECT SUM(chenh_lech * so_luong) FROM CongDoan WHERE 1=1"
+    if tu_ngay:
+        sql_tong += " AND ngay >= ?"
+    if den_ngay:
+        sql_tong += " AND ngay <= ?"
+    result = execute_query(sql_tong, tuple(params) if params else None, fetch_one=True)
+    tong = result[0] if result and result[0] is not None else 0
+    return data, tong

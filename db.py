@@ -36,6 +36,27 @@ def khoi_tao_db():
         print("Lỗi khi thêm cột loai_gia vào LogKho:", e)
     finally:
         conn.close()
+
+    # Tự động thêm cột tong_tien, uu_dai, tong_sau_uu_dai, tong_cuoi vào HoaDon nếu chưa có
+    try:
+        conn = ket_noi()
+        c = conn.cursor()
+        c.execute("PRAGMA table_info(HoaDon)")
+        columns = [row[1] for row in c.fetchall()]
+        if "tong_tien" not in columns:
+            c.execute("ALTER TABLE HoaDon ADD COLUMN tong_tien REAL DEFAULT 0")
+        if "uu_dai" not in columns:
+            c.execute("ALTER TABLE HoaDon ADD COLUMN uu_dai REAL DEFAULT 0")
+        if "tong_sau_uu_dai" not in columns:
+            c.execute("ALTER TABLE HoaDon ADD COLUMN tong_sau_uu_dai REAL DEFAULT 0")
+        if "tong_cuoi" not in columns:
+            c.execute("ALTER TABLE HoaDon ADD COLUMN tong_cuoi REAL DEFAULT 0")
+        conn.commit()
+    except Exception as e:
+        print("Lỗi khi thêm các cột vào HoaDon:", e)
+    finally:
+        conn.close()
+
     conn = ket_noi()
     c = conn.cursor()
 
@@ -198,6 +219,72 @@ def khoi_tao_db():
             ngay TEXT,
             FOREIGN KEY(user_id) REFERENCES Users(id),
             FOREIGN KEY(sanpham_id) REFERENCES SanPham(id)
+        )
+        """
+    )
+
+    # Bảng xuất dư (để theo dõi số lượng xuất vượt quá số lượng bán)
+    c.execute(
+        """
+        CREATE TABLE IF NOT EXISTS XuatDu (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            sanpham_id INTEGER,
+            ten_sanpham TEXT,
+            so_luong REAL,
+            loai_gia TEXT,
+            ngay TEXT,
+            FOREIGN KEY(user_id) REFERENCES Users(id),
+            FOREIGN KEY(sanpham_id) REFERENCES SanPham(id)
+        )
+        """
+    )
+
+    # Bảng chênh lệch xuất bổ (để theo dõi chênh lệch khi xuất bổ)
+    c.execute(
+        """
+        CREATE TABLE IF NOT EXISTS ChenhLechXuatBo (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            sanpham_id INTEGER,
+            ten_sanpham TEXT,
+            so_luong REAL,
+            loai_gia_nguon TEXT,
+            loai_gia_xuat TEXT,
+            gia_ban REAL,
+            gia_xuat REAL,
+            chenh_lech REAL,
+            ngay TEXT,
+            FOREIGN KEY(user_id) REFERENCES Users(id),
+            FOREIGN KEY(sanpham_id) REFERENCES SanPham(id)
+        )
+        """
+    )
+
+    # Bổ sung cột phân loại giá mới/cũ nếu chưa có
+    try:
+        c.execute("PRAGMA table_info(ChenhLechXuatBo)")
+        cols = [row[1] for row in c.fetchall()]
+        if "is_gia_moi" not in cols:
+            c.execute("ALTER TABLE ChenhLechXuatBo ADD COLUMN is_gia_moi INTEGER")
+    except Exception:
+        pass
+
+    # Bảng lịch sử thay đổi giá sản phẩm
+    c.execute(
+        """
+        CREATE TABLE IF NOT EXISTS LichSuGia (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sanpham_id INTEGER,
+            ten_sanpham TEXT,
+            loai_gia TEXT,
+            gia_cu REAL,
+            gia_moi REAL,
+            user_id INTEGER,
+            ngay_thay_doi TEXT,
+            ghi_chu TEXT,
+            FOREIGN KEY(sanpham_id) REFERENCES SanPham(id),
+            FOREIGN KEY(user_id) REFERENCES Users(id)
         )
         """
     )

@@ -1,5 +1,6 @@
 # Helpers for invoice-related calculations
 
+
 def tinh_unpaid_total(chi_tiet_rows):
     """
     Compute unpaid total for an invoice detail list.
@@ -54,9 +55,7 @@ def chon_don_gia(sp_row, so_luong, is_vip):
     Trả về đơn giá float.
     """
     try:
-        loai = xac_dinh_loai_gia(
-            so_luong, sp_row[6] if len(sp_row) > 6 else 0, is_vip
-        )
+        loai = xac_dinh_loai_gia(so_luong, sp_row[6] if len(sp_row) > 6 else 0, is_vip)
         if loai == "vip":
             return float(sp_row[4])
         if loai == "buon":

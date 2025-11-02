@@ -1,5 +1,11 @@
 from db import ket_noi
 import hashlib
+from utils.db_helpers import execute_query, execute_update, db_transaction
+
+
+def lay_username(user_id):
+    result = execute_query("SELECT username FROM Users WHERE id=?", (user_id,), fetch_one=True)
+    return result[0] if result else ""
 
 
 def ma_hoa_mat_khau(pwd):
@@ -7,89 +13,49 @@ def ma_hoa_mat_khau(pwd):
 
 
 def them_user(username, password, role):
-    conn = ket_noi()
-    c = conn.cursor()
-    try:
-        c.execute(
-            "INSERT INTO Users (username,password,role) VALUES (?,?,?)",
-            (username, ma_hoa_mat_khau(password), role),
-        )
-        conn.commit()
-        return True
-    except Exception as e:
-        print("Loi them_user:", e)
-        return False
-    finally:
-        conn.close()
+    success = execute_update(
+        "INSERT INTO Users (username,password,role) VALUES (?,?,?)",
+        (username, ma_hoa_mat_khau(password), role)
+    )
+    if not success:
+        print("Loi them_user")
+    return success
 
 
 def dang_nhap(username, password):
-    conn = ket_noi()
-    c = conn.cursor()
-    try:
-        c.execute("SELECT id, role, password FROM Users WHERE username=?", (username,))
-        row = c.fetchone()
-        if not row:
-            return None
-        uid, role, pwd_hash = row
-        if ma_hoa_mat_khau(password) == pwd_hash:
-            return (uid, role)
+    row = execute_query("SELECT id, role, password FROM Users WHERE username=?", (username,), fetch_one=True)
+    if not row:
         return None
-    finally:
-        conn.close()
+    uid, role, pwd_hash = row
+    if ma_hoa_mat_khau(password) == pwd_hash:
+        return (uid, role)
+    return None
 
 
 def lay_tat_ca_user():
-    conn = ket_noi()
-    c = conn.cursor()
-    try:
-        c.execute("SELECT id, username, role, so_du FROM Users")
-        res = c.fetchall()
-        return res
-    finally:
-        conn.close()
+    return execute_query("SELECT id, username, role, so_du FROM Users", fetch_all=True) or []
 
 
 def xoa_user(user_id):
-    conn = ket_noi()
-    c = conn.cursor()
-    try:
-        c.execute("DELETE FROM Users WHERE id=?", (user_id,))
-        conn.commit()
-        return True
-    except Exception as e:
-        print("Loi xoa_user:", e)
-        return False
-    finally:
-        conn.close()
+    success = execute_update("DELETE FROM Users WHERE id=?", (user_id,))
+    if not success:
+        print("Loi xoa_user")
+    return success
 
 
 def doi_mat_khau(user_id, new_password):
-    conn = ket_noi()
-    c = conn.cursor()
-    try:
-        c.execute(
-            "UPDATE Users SET password=? WHERE id=?",
-            (ma_hoa_mat_khau(new_password), user_id),
-        )
-        conn.commit()
-        return True
-    except Exception as e:
-        print("Loi doi_mat_khau:", e)
-        return False
-    finally:
-        conn.close()
+    success = execute_update(
+        "UPDATE Users SET password=? WHERE id=?",
+        (ma_hoa_mat_khau(new_password), user_id)
+    )
+    if not success:
+        print("Loi doi_mat_khau")
+    return success
 
 
 def lay_so_du(user_id):
-    conn = ket_noi()
-    c = conn.cursor()
-    try:
-        c.execute("SELECT so_du FROM Users WHERE id=?", (user_id,))
-        r = c.fetchone()
-        return r[0] if r else 0
-    finally:
-        conn.close()
+    result = execute_query("SELECT so_du FROM Users WHERE id=?", (user_id,), fetch_one=True)
+    return result[0] if result else 0
 
 
 def chuyen_tien(tu_user, den_user, so_tien, hoadon_id=None):
@@ -102,63 +68,46 @@ def chuyen_tien(tu_user, den_user, so_tien, hoadon_id=None):
     if tu_user == den_user and hoadon_id is None:
         return False, "Không thể chuyển tiền cho chính mình"
 
-    conn = ket_noi()
-    c = conn.cursor()
     try:
-        c.execute("SELECT so_du FROM Users WHERE id=?", (tu_user,))
-        r = c.fetchone()
-        so_du = r[0] if r else 0
-        if so_du < so_tien:
-            return False, "Khong du so du"
-        c.execute("UPDATE Users SET so_du = so_du - ? WHERE id=?", (so_tien, tu_user))
-        c.execute("UPDATE Users SET so_du = so_du + ? WHERE id=?", (so_tien, den_user))
-        # Lưu giao dịch với thời gian local (giờ Việt Nam)
-        thoi_gian_hien_tai = datetime.now().isoformat()
-        if hoadon_id is not None:
-            c.execute(
-                "INSERT INTO GiaoDichQuy (user_id, user_nhan_id, so_tien, ngay, hoadon_id) VALUES (?, ?, ?, ?, ?)",
-                (tu_user, den_user, so_tien, thoi_gian_hien_tai, hoadon_id),
-            )
-        else:
-            c.execute(
-                "INSERT INTO GiaoDichQuy (user_id, user_nhan_id, so_tien, ngay) VALUES (?, ?, ?, ?)",
-                (tu_user, den_user, so_tien, thoi_gian_hien_tai),
-            )
-        conn.commit()
+        with db_transaction() as (conn, c):
+            c.execute("SELECT so_du FROM Users WHERE id=?", (tu_user,))
+            r = c.fetchone()
+            so_du = r[0] if r else 0
+            if so_du < so_tien:
+                return False, "Khong du so du"
+            c.execute("UPDATE Users SET so_du = so_du - ? WHERE id=?", (so_tien, tu_user))
+            c.execute("UPDATE Users SET so_du = so_du + ? WHERE id=?", (so_tien, den_user))
+            # Lưu giao dịch với thời gian local (giờ Việt Nam)
+            thoi_gian_hien_tai = datetime.now().isoformat()
+            if hoadon_id is not None:
+                c.execute(
+                    "INSERT INTO GiaoDichQuy (user_id, user_nhan_id, so_tien, ngay, hoadon_id) VALUES (?, ?, ?, ?, ?)",
+                    (tu_user, den_user, so_tien, thoi_gian_hien_tai, hoadon_id),
+                )
+            else:
+                c.execute(
+                    "INSERT INTO GiaoDichQuy (user_id, user_nhan_id, so_tien, ngay) VALUES (?, ?, ?, ?)",
+                    (tu_user, den_user, so_tien, thoi_gian_hien_tai),
+                )
         return True, None
     except Exception as e:
-        conn.rollback()
         return False, str(e)
-    finally:
-        conn.close()
 
 
 def lay_tong_nop_theo_hoadon(hoadon_id):
     """Trả về tổng số tiền đã nộp cho một hoadon (theo cột hoadon_id trong GiaoDichQuy)."""
-    conn = ket_noi()
-    c = conn.cursor()
-    try:
-        c.execute(
-            "SELECT SUM(so_tien) FROM GiaoDichQuy WHERE hoadon_id = ?", (hoadon_id,)
-        )
-        r = c.fetchone()
-        return r[0] if r and r[0] is not None else 0
-    finally:
-        conn.close()
+    result = execute_query(
+        "SELECT SUM(so_tien) FROM GiaoDichQuy WHERE hoadon_id = ?", 
+        (hoadon_id,), 
+        fetch_one=True
+    )
+    return result[0] if result and result[0] is not None else 0
 
 
 def lay_lich_su_quy(user_id=None):
-    conn = ket_noi()
-    c = conn.cursor()
-    try:
-        sql = "SELECT id, user_id, user_nhan_id, so_tien, ngay FROM GiaoDichQuy"
-        params = []
-        if user_id:
-            sql += " WHERE user_id=? OR user_nhan_id=?"
-            params = [user_id, user_id]
-        c.execute(sql, params)
-        res = c.fetchall()
-        return res
-    finally:
-        conn.close()
-    return res
+    sql = "SELECT id, user_id, user_nhan_id, so_tien, ngay FROM GiaoDichQuy"
+    params = []
+    if user_id:
+        sql += " WHERE user_id=? OR user_nhan_id=?"
+        params = [user_id, user_id]
+    return execute_query(sql, tuple(params) if params else None, fetch_all=True) or []
