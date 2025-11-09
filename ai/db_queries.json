@@ -1,0 +1,50 @@
+{
+  "bao nhiêu sản phẩm": "SELECT COUNT(*) FROM SanPham",
+  "danh sách sản phẩm": "SELECT ten, gia_le, gia_buon FROM SanPham LIMIT 10",
+  "sản phẩm nào": "SELECT ten, ton_kho FROM SanPham WHERE ton_kho > 0 ORDER BY ton_kho DESC LIMIT 5",
+  "tồn kho": "SELECT ten, ton_kho, don_vi FROM SanPham ORDER BY ton_kho DESC LIMIT 10",
+  "có bao nhiêu sản phẩm 2t": "SELECT ten, ton_kho, don_vi FROM SanPham WHERE UPPER(ten) LIKE '%2T%'",
+  "còn bao nhiêu sản phẩm 2t": "SELECT ten, ton_kho, don_vi FROM SanPham WHERE UPPER(ten) LIKE '%2T%'",
+  "sản phẩm 2t trong kho": "SELECT ten, ton_kho, don_vi FROM SanPham WHERE UPPER(ten) LIKE '%2T%'",
+  "còn bao nhiêu": "SELECT ten, ton_kho, don_vi FROM SanPham",
+  "2t": "SELECT ten, ton_kho, don_vi FROM SanPham WHERE UPPER(ten) LIKE '%2T%'",
+  
+  "giá của": "SELECT ten, gia_le, gia_buon, gia_vip FROM SanPham WHERE UPPER(ten) LIKE '%{query}%' LIMIT 5",
+  "giá sản phẩm": "SELECT ten, gia_le, gia_buon, gia_vip FROM SanPham LIMIT 10",
+  "giá 2t": "SELECT ten, gia_le, gia_buon, gia_vip FROM SanPham WHERE UPPER(ten) LIKE '%2T%'",
+  
+  "bao nhiêu hóa đơn": "SELECT COUNT(*) FROM HoaDon",
+  "hóa đơn hôm nay": "SELECT id, khach_hang, tong_cuoi FROM HoaDon WHERE DATE(ngay) = DATE('now') LIMIT 10",
+  "doanh thu": "SELECT SUM(tong_cuoi) FROM HoaDon WHERE DATE(ngay) = DATE('now')",
+  "doanh thu hôm nay": "SELECT SUM(tong_cuoi) FROM HoaDon WHERE DATE(ngay) = DATE('now')",
+  "doanh thu tuần này": "SELECT SUM(tong_cuoi) FROM HoaDon WHERE DATE(ngay) >= DATE('now', '-7 days')",
+  "doanh thu ngày": "SELECT SUM(tong_cuoi) FROM HoaDon WHERE DATE(ngay) = '{date}'",
+  "doanh thu tháng": "SELECT SUM(tong_cuoi) FROM HoaDon WHERE strftime('%Y-%m', ngay) = strftime('%Y-%m', 'now')",
+  
+  "bao nhiêu user": "SELECT COUNT(*) FROM Users",
+  "danh sách user": "SELECT username, role FROM Users",
+  "liệt kê user": "SELECT username, role FROM Users",
+  "các user": "SELECT username, role FROM Users",
+  "tất cả user": "SELECT username, role FROM Users",
+  "user nào": "SELECT username, role FROM Users WHERE UPPER(username) LIKE '%{query}%'",
+  "user hung": "SELECT username, role, so_du FROM Users WHERE UPPER(username) LIKE '%HUNG%'",
+  
+  "sản phẩm giá cao": "SELECT ten, gia_le FROM SanPham ORDER BY gia_le DESC LIMIT 5",
+  "hết hàng": "SELECT ten, ton_kho FROM SanPham WHERE ton_kho <= 0",
+  "sắp hết": "SELECT ten, ton_kho FROM SanPham WHERE ton_kho > 0 AND ton_kho < 10 ORDER BY ton_kho",
+  
+  "chi tiết bán hôm nay": "SELECT s.ten, SUM(c.so_luong) as tong_sl FROM ChiTietBan c JOIN SanPham s ON c.sanpham_id = s.id JOIN HoaDon h ON c.hoadon_id = h.id WHERE DATE(h.ngay) = DATE('now') GROUP BY s.ten ORDER BY tong_sl DESC LIMIT 10",
+  "sản phẩm bán chạy": "SELECT s.ten, SUM(c.so_luong) as tong_sl FROM ChiTietBan c JOIN SanPham s ON c.sanpham_id = s.id JOIN HoaDon h ON c.hoadon_id = h.id WHERE DATE(h.ngay) >= DATE('now', '-7 days') GROUP BY s.ten ORDER BY tong_sl DESC LIMIT 5",
+  "đã bán bao nhiêu": "SELECT s.ten, SUM(c.so_luong) as tong_sl FROM ChiTietBan c JOIN SanPham s ON c.sanpham_id = s.id GROUP BY s.ten ORDER BY tong_sl DESC LIMIT 10",
+  "bán được bao nhiêu": "SELECT s.ten, SUM(c.so_luong) as tong_sl FROM ChiTietBan c JOIN SanPham s ON c.sanpham_id = s.id JOIN HoaDon h ON c.hoadon_id = h.id WHERE DATE(h.ngay) = '{date}' GROUP BY s.ten ORDER BY tong_sl DESC LIMIT 10",
+  "user bán được": "SELECT s.ten, SUM(c.so_luong) as tong_sl FROM ChiTietBan c JOIN SanPham s ON c.sanpham_id = s.id JOIN HoaDon h ON c.hoadon_id = h.id JOIN Users u ON h.user_id = u.id WHERE UPPER(u.username) LIKE '%{user}%' AND DATE(h.ngay) = '{date}' GROUP BY s.ten ORDER BY tong_sl DESC",
+  "hung bán được": "SELECT s.ten, SUM(c.so_luong) as tong_sl FROM ChiTietBan c JOIN SanPham s ON c.sanpham_id = s.id JOIN HoaDon h ON c.hoadon_id = h.id JOIN Users u ON h.user_id = u.id WHERE UPPER(u.username) LIKE '%HUNG%' AND DATE(h.ngay) = '{date}' GROUP BY s.ten ORDER BY tong_sl DESC",
+  
+  "giao dịch hôm nay": "SELECT COUNT(*) FROM GiaoDichQuy WHERE DATE(ngay) = DATE('now')",
+  "tổng giao dịch": "SELECT SUM(so_tien) FROM GiaoDichQuy WHERE DATE(ngay) = DATE('now')",
+  "giao dịch ngày": "SELECT u1.username as tu_user, u2.username as den_user, g.so_tien, g.ghi_chu FROM GiaoDichQuy g LEFT JOIN Users u1 ON g.user_id = u1.id LEFT JOIN Users u2 ON g.user_nhan_id = u2.id WHERE DATE(g.ngay) = '{date}' ORDER BY g.ngay DESC LIMIT 10",
+  
+  "chênh lệch xuất bỏ": "SELECT s.ten, SUM(c.chenh_lech) as tong_cl FROM ChenhLechXuatBo c JOIN SanPham s ON c.ten_sanpham = s.ten GROUP BY s.ten ORDER BY tong_cl DESC LIMIT 10",
+  "tổng chênh lệch": "SELECT SUM(chenh_lech) FROM ChenhLechXuatBo WHERE DATE(ngay) = DATE('now')",
+  "chênh lệch ngày": "SELECT ten_sanpham, SUM(chenh_lech) as tong_cl FROM ChenhLechXuatBo WHERE DATE(ngay) = '{date}' GROUP BY ten_sanpham ORDER BY tong_cl DESC"
+}

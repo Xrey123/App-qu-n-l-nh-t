@@ -5,10 +5,12 @@ from utils.db_helpers import db_transaction, execute_query, execute_update
 import pandas as pd
 
 
-def tao_hoa_don(user_id, khach_hang, items, uu_dai, xuat_hoa_don, giam_gia, ngay_ghi_nhan=None):
+def tao_hoa_don(
+    user_id, khach_hang, items, uu_dai, xuat_hoa_don, giam_gia, ngay_ghi_nhan=None
+):
     """
     Tạo hóa đơn mới với thời gian tùy chỉnh.
-    
+
     Args:
         ngay_ghi_nhan: Thời gian ghi nhận (string format 'YYYY-MM-DD HH:MM:SS').
                        Nếu None, sử dụng thời gian hiện tại.
@@ -30,7 +32,9 @@ def tao_hoa_don(user_id, khach_hang, items, uu_dai, xuat_hoa_don, giam_gia, ngay
             for item in items:
                 sanpham_id = item["sanpham_id"]
                 so_luong = item["so_luong"]
-                c.execute("SELECT ten, ton_kho FROM SanPham WHERE id = ?", (sanpham_id,))
+                c.execute(
+                    "SELECT ten, ton_kho FROM SanPham WHERE id = ?", (sanpham_id,)
+                )
                 result = c.fetchone()
                 if not result:
                     errors.append(f"Sản phẩm ID {sanpham_id} không tồn tại")
@@ -53,7 +57,7 @@ def tao_hoa_don(user_id, khach_hang, items, uu_dai, xuat_hoa_don, giam_gia, ngay
                 ngay = ngay_ghi_nhan
             else:
                 ngay = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            
+
             trang_thai = (
                 "Chua_xuat"
                 if any(item.get("xuat_hoa_don", 1) == 0 for item in items)
@@ -205,7 +209,9 @@ def xuat_hoa_don(hoadon_id, user_id):
             trang_thai = row[0]
             if trang_thai == "Da_xuat":
                 return False, "Hóa đơn đã xuất"
-            c.execute("UPDATE HoaDon SET trang_thai = 'Da_xuat' WHERE id = ?", (hoadon_id,))
+            c.execute(
+                "UPDATE HoaDon SET trang_thai = 'Da_xuat' WHERE id = ?", (hoadon_id,)
+            )
         return True, "Xuất thành công"
     except Exception as e:
         return False, str(e)
@@ -252,7 +258,7 @@ def lay_chi_tiet_hoadon_da_xuat(user_id, role, tu_ngay=None, den_ngay=None):
 def sua_hoa_don(hoadon_id, ngay=None, khach_hang=None, ghi_chu=None):
     """
     Sửa thông tin hóa đơn (chỉ cho admin).
-    
+
     Args:
         hoadon_id: ID hóa đơn cần sửa
         ngay: Ngày giờ mới (format 'YYYY-MM-DD HH:MM:SS') hoặc None nếu không đổi
@@ -262,25 +268,25 @@ def sua_hoa_don(hoadon_id, ngay=None, khach_hang=None, ghi_chu=None):
     try:
         updates = []
         params = []
-        
+
         if ngay is not None:
             updates.append("ngay = ?")
             params.append(ngay)
-        
+
         if khach_hang is not None:
             updates.append("khach_hang = ?")
             params.append(khach_hang)
-        
+
         if ghi_chu is not None:
             updates.append("ghi_chu = ?")
             params.append(ghi_chu)
-        
+
         if not updates:
             return True  # Không có gì để cập nhật
-        
+
         params.append(hoadon_id)
         sql = f"UPDATE HoaDon SET {', '.join(updates)} WHERE id = ?"
-        
+
         success = execute_update(sql, tuple(params))
         return success
     except Exception as e:
@@ -308,7 +314,7 @@ def xoa_hoa_don(hoadon_id):
 def sua_chi_tiet_hoa_don(chitiet_id, so_luong=None, gia=None, giam=None, ghi_chu=None):
     """
     Sửa chi tiết hóa đơn (chỉ cho admin).
-    
+
     Args:
         chitiet_id: ID chi tiết hóa đơn cần sửa
         so_luong: Số lượng mới hoặc None nếu không đổi
@@ -319,29 +325,29 @@ def sua_chi_tiet_hoa_don(chitiet_id, so_luong=None, gia=None, giam=None, ghi_chu
     try:
         updates = []
         params = []
-        
+
         if so_luong is not None:
             updates.append("so_luong = ?")
             params.append(so_luong)
-        
+
         if gia is not None:
             updates.append("gia = ?")
             params.append(gia)
-        
+
         if giam is not None:
             updates.append("giam = ?")
             params.append(giam)
-        
+
         if ghi_chu is not None:
             updates.append("ghi_chu = ?")
             params.append(ghi_chu)
-        
+
         if not updates:
             return True  # Không có gì để cập nhật
-        
+
         params.append(chitiet_id)
         sql = f"UPDATE ChiTietHoaDon SET {', '.join(updates)} WHERE id = ?"
-        
+
         success = execute_update(sql, tuple(params))
         return success
     except Exception as e:
@@ -355,7 +361,9 @@ def xoa_chi_tiet_hoa_don(chitiet_id):
     Lưu ý: Cần cân nhắc việc hoàn trả tồn kho.
     """
     try:
-        success = execute_update("DELETE FROM ChiTietHoaDon WHERE id = ?", (chitiet_id,))
+        success = execute_update(
+            "DELETE FROM ChiTietHoaDon WHERE id = ?", (chitiet_id,)
+        )
         return success
     except Exception as e:
         print(f"Lỗi xóa chi tiết hóa đơn: {e}")

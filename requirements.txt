@@ -1,0 +1,5 @@
+PyQt5>=5.15.0
+llama-cpp-python>=0.2.0
+openpyxl>=3.0.0
+python-docx>=0.8.11
+Pillow>=9.0.0

@@ -1,0 +1,22 @@
+{
+  "workflow:nhập hàng": "Vào tab 'Ca bán hàng' → 'Nhận hàng' → Nhập số lượng → Lưu CSV",
+  "workflow:bán hàng": "Tab 'Bán hàng' → Chọn SP → Nhập SL → Chọn giá → Thêm → Thanh toán",
+  "workflow:đóng ca": "Tab 'Báo cáo' → 'Tổng kết ca' → In HTML",
+  "3 loại giá": "Giá lẻ (khách mua ít), Giá buôn (>=ngưỡng), Giá VIP (khách thân)",
+  "vai trò": "Admin (full), Accountant (báo cáo), Staff (bán hàng)",
+  "tabs": "13 tabs: Trang chủ, Sản phẩm, Lịch sử giá, Ca bán hàng, Chi tiết bán, Hóa đơn, Báo cáo, AI, User, Chênh lệch, Xuất bỏ, Công đoàn, Quyền hạn",
+  "keyword:ai": {
+    "file": "ai/simple_ai.py",
+    "snippet": "\"\"\"\n🤖 AI SIMPLE - Hệ thống AI đơn giản cho quản lý bán hàng\nHybrid: Qwen2-1.5B (Ollama) + Gemma 2B (llama.cpp backup)\n\"\"\"\n\nimport requests\nimport json\nimport sys\nimport os\nfrom typing import Optional\n\n# Import AIAssistant if available\ntry:\n    sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))\n    from ai_assistant import AIAssistant\n    ASSISTANT_AVAILABLE = True\nexcept:\n    ASSISTANT_AVAILABLE = False\n\n\nclass SimpleAI:\n    \"\"\"\n    AI đơn giản với quy trình:\n    1. AIAssistant (Qwen",
+    "timestamp": 1762484814.215742
+  },
+  "q:đổi mật khẩu ở đâu": "Để đổi mật khẩu, bạn hãy truy cập trang **\"Cài đặt tài khoản\"** trong ứng dụng.",
+  "q:tab trang chủ làm gì": "Tab Trang Chủ là nơi bạn cập nhật thông tin, xem báo cáo và quản lý cửa hàng! 🗺️",
+  "q:tab sản phẩm thì sao": "Tab Sản phẩm là nơi bạn xem danh sách các loại xăng, dầu, hóa chất...  còn muốn xem chi tiết nào? 😉",
+  "q:muốn xem chi tiết mặt hàng": "Chào bạn! Để xem chi tiết sản phẩm, hãy chọn tab **Sản phẩm** nhé. 😊",
+  "q:vậy tab lịch sử giá dùng để là": "Tab Lịch Sử Giá dùng để xem **giá xăng hôm qua, tuần này và tháng này** bạn nhé! ⛽️",
+  "q:mở tab lịch sử giá giúp mình": "Chào bạn! Bạn muốn xem lịch sử giá ở tab \"Lịch sử giá\" nhé. \n  \nClick vào tab **Lịch sử giá** để xem. 😉",
+  "q:làm sao đổi mật khẩu": "Để đổi mật khẩu bạn vui lòng truy cập **\"User\"** trên ứng dụng và chọn \"Đổi mật khẩu\". 🔐  \n \n Nếu gặp khó khăn gì, hãy liên hệ với chúng tôi qua số điện thoại/email trong ứng dụng. 😊",
+  "q:muốn đăng xuất thì sao": "Để đăng xuất, bạn vui lòng chọn **\"Đăng xuất\"** ở thanh công cụ trên màn hình! 👋",
+  "q:chuyển đến tab nhập đàu kì": "Chuyển sang tab **Nhập đầu kỳ** rồi! 😊"
+}

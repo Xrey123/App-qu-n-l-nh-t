@@ -47,14 +47,24 @@ def cap_nhat_ton(product_id, ton_moi):
 
 
 def tim_sanpham(keyword):
-    return execute_query("SELECT * FROM SanPham WHERE ten LIKE ?", ("%" + keyword + "%",), fetch_all=True) or []
+    return (
+        execute_query(
+            "SELECT * FROM SanPham WHERE ten LIKE ?",
+            ("%" + keyword + "%",),
+            fetch_all=True,
+        )
+        or []
+    )
 
 
 def lay_tat_ca_sanpham():
-    return execute_query(
-        "SELECT id, ten, gia_le, gia_buon, gia_vip, ton_kho, nguong_buon FROM SanPham",
-        fetch_all=True,
-    ) or []
+    return (
+        execute_query(
+            "SELECT id, ten, gia_le, gia_buon, gia_vip, ton_kho, nguong_buon FROM SanPham",
+            fetch_all=True,
+        )
+        or []
+    )
 
 
 def lay_danh_sach_ten_sanpham():
@@ -95,6 +105,7 @@ def import_sanpham_from_dataframe(df, user_id=None):
             raise ValueError(f"Thiếu cột bắt buộc: {col}")
 
     from datetime import datetime
+
     ngay_import = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     try:
@@ -109,7 +120,8 @@ def import_sanpham_from_dataframe(df, user_id=None):
 
                 # Kiểm tra sản phẩm đã tồn tại chưa
                 c.execute(
-                    "SELECT id, gia_le, gia_buon, gia_vip FROM SanPham WHERE ten=?", (ten,)
+                    "SELECT id, gia_le, gia_buon, gia_vip FROM SanPham WHERE ten=?",
+                    (ten,),
                 )
                 existing = c.fetchone()
 
@@ -200,7 +212,14 @@ def import_sanpham_from_dataframe(df, user_id=None):
                     c.execute(
                         """INSERT INTO SanPham (ten, gia_le, gia_buon, gia_vip, ton_kho, nguong_buon)
                         VALUES (?, ?, ?, ?, ?, ?)""",
-                        (ten, gia_le_moi, gia_buon_moi, gia_vip_moi, ton_kho, nguong_buon),
+                        (
+                            ten,
+                            gia_le_moi,
+                            gia_buon_moi,
+                            gia_vip_moi,
+                            ton_kho,
+                            nguong_buon,
+                        ),
                     )
         return True
     except Exception as e:

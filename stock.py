@@ -3,6 +3,45 @@ from db import ket_noi
 from utils.db_helpers import execute_query, db_transaction
 
 
+def lay_ton_kho(sanpham_id):
+    """
+    Lấy số lượng tồn kho của một sản phẩm
+    
+    Args:
+        sanpham_id: ID sản phẩm
+        
+    Returns:
+        int: Số lượng tồn kho, hoặc None nếu không tìm thấy
+    """
+    result = execute_query(
+        "SELECT ton_kho FROM SanPham WHERE id = ?",
+        (sanpham_id,),
+        fetch_one=True
+    )
+    return result[0] if result else None
+
+
+def cap_nhat_ton_kho(sanpham_id, so_luong_moi):
+    """
+    Cập nhật tồn kho của một sản phẩm
+    
+    Args:
+        sanpham_id: ID sản phẩm
+        so_luong_moi: Số lượng tồn kho mới
+        
+    Returns:
+        bool: True nếu thành công, False nếu thất bại
+    """
+    try:
+        execute_query(
+            "UPDATE SanPham SET ton_kho = ? WHERE id = ?",
+            (so_luong_moi, sanpham_id)
+        )
+        return True
+    except:
+        return False
+
+
 def cap_nhat_kho_sau_ban(sanpham_id, so_luong, user_id, gia_ap_dung, chenh_lech=0):
     try:
         with db_transaction() as (conn, c):
@@ -48,12 +87,15 @@ def cap_nhat_kho_sau_ban(sanpham_id, so_luong, user_id, gia_ap_dung, chenh_lech=
 
 
 def lay_san_pham_chua_xuat():
-    return execute_query(
-        "SELECT c.hoadon_id, c.sanpham_id, s.ten, c.so_luong, c.loai_gia, c.gia "
-        "FROM ChiTietHoaDon c JOIN SanPham s ON c.sanpham_id = s.id "
-        "WHERE c.xuat_hoa_don = 0",
-        fetch_all=True,
-    ) or []
+    return (
+        execute_query(
+            "SELECT c.hoadon_id, c.sanpham_id, s.ten, c.so_luong, c.loai_gia, c.gia "
+            "FROM ChiTietHoaDon c JOIN SanPham s ON c.sanpham_id = s.id "
+            "WHERE c.xuat_hoa_don = 0",
+            fetch_all=True,
+        )
+        or []
+    )
 
 
 def lay_san_pham_chua_xuat_theo_loai_gia(loai_gia):
@@ -61,8 +103,9 @@ def lay_san_pham_chua_xuat_theo_loai_gia(loai_gia):
     Lấy tổng số lượng sản phẩm chưa xuất hóa đơn theo loại giá
     Returns: [(ten_san_pham, tong_so_luong), ...]
     """
-    return execute_query(
-        """
+    return (
+        execute_query(
+            """
         SELECT s.ten, SUM(c.so_luong) as tong_sl
         FROM ChiTietHoaDon c
         JOIN SanPham s ON c.sanpham_id = s.id
@@ -70,9 +113,11 @@ def lay_san_pham_chua_xuat_theo_loai_gia(loai_gia):
         GROUP BY s.ten
         ORDER BY s.ten
         """,
-        (loai_gia,),
-        fetch_all=True,
-    ) or []
+            (loai_gia,),
+            fetch_all=True,
+        )
+        or []
+    )
 
 
 def xuat_bo_san_pham(hoadon_id, sanpham_id, user_id, so_luong, gia, chenh_lech):
@@ -472,12 +517,15 @@ def xuat_bo_san_pham_theo_ten(
 
 
 def lay_tong_chua_xuat_theo_sp():
-    return execute_query(
-        "SELECT s.id, s.ten, SUM(c.so_luong) "
-        "FROM ChiTietHoaDon c JOIN SanPham s ON c.sanpham_id = s.id "
-        "WHERE c.xuat_hoa_don = 0 GROUP BY s.id, s.ten",
-        fetch_all=True,
-    ) or []
+    return (
+        execute_query(
+            "SELECT s.id, s.ten, SUM(c.so_luong) "
+            "FROM ChiTietHoaDon c JOIN SanPham s ON c.sanpham_id = s.id "
+            "WHERE c.xuat_hoa_don = 0 GROUP BY s.id, s.ten",
+            fetch_all=True,
+        )
+        or []
+    )
 
 
 def lay_bao_cao_cong_doan(tu_ngay=None, den_ngay=None):

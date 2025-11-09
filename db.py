@@ -1,61 +1,59 @@
 import sqlite3
+from utils.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 DB_NAME = "fapp.db"
 
 
 def ket_noi():
-    conn = sqlite3.connect(DB_NAME, timeout=30.0)  # Tăng timeout lên 30 giây
+    """Get database connection. Consider using get_db_connection() context manager instead."""
+    conn = sqlite3.connect(DB_NAME, timeout=30.0)
     return conn
 
 
+def _add_column_if_missing(table_name: str, column_name: str, column_def: str):
+    """Helper to safely add column to table if it doesn't exist."""
+    try:
+        conn = ket_noi()
+        c = conn.cursor()
+        c.execute(f"PRAGMA table_info({table_name})")
+        columns = [row[1] for row in c.fetchall()]
+        
+        if column_name not in columns:
+            logger.info(f"Adding column '{column_name}' to {table_name}...")
+            c.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_def}")
+            conn.commit()
+            logger.info(f"Successfully added column '{column_name}' to {table_name}")
+        else:
+            logger.debug(f"Column '{column_name}' already exists in {table_name}")
+    except sqlite3.OperationalError as e:
+        logger.error(f"Failed to add column '{column_name}' to {table_name}: {e}")
+        raise
+    except sqlite3.DatabaseError as e:
+        logger.error(f"Database error while adding column to {table_name}: {e}", exc_info=True)
+        raise
+    finally:
+        try:
+            conn.close()
+        except:
+            pass
+
+
 def khoi_tao_db():
-    # Tự động thêm cột ghi_chu vào GiaoDichQuy nếu chưa có
-    try:
-        conn = ket_noi()
-        c = conn.cursor()
-        c.execute("PRAGMA table_info(GiaoDichQuy)")
-        columns = [row[1] for row in c.fetchall()]
-        if "ghi_chu" not in columns:
-            c.execute("ALTER TABLE GiaoDichQuy ADD COLUMN ghi_chu TEXT")
-            conn.commit()
-    except Exception as e:
-        print("Lỗi khi thêm cột ghi_chu vào GiaoDichQuy:", e)
-    finally:
-        conn.close()
-
-    # Tự động thêm cột loai_gia vào LogKho nếu chưa có
-    try:
-        conn = ket_noi()
-        c = conn.cursor()
-        c.execute("PRAGMA table_info(LogKho)")
-        columns = [row[1] for row in c.fetchall()]
-        if "loai_gia" not in columns:
-            c.execute("ALTER TABLE LogKho ADD COLUMN loai_gia TEXT")
-            conn.commit()
-    except Exception as e:
-        print("Lỗi khi thêm cột loai_gia vào LogKho:", e)
-    finally:
-        conn.close()
-
-    # Tự động thêm cột tong_tien, uu_dai, tong_sau_uu_dai, tong_cuoi vào HoaDon nếu chưa có
-    try:
-        conn = ket_noi()
-        c = conn.cursor()
-        c.execute("PRAGMA table_info(HoaDon)")
-        columns = [row[1] for row in c.fetchall()]
-        if "tong_tien" not in columns:
-            c.execute("ALTER TABLE HoaDon ADD COLUMN tong_tien REAL DEFAULT 0")
-        if "uu_dai" not in columns:
-            c.execute("ALTER TABLE HoaDon ADD COLUMN uu_dai REAL DEFAULT 0")
-        if "tong_sau_uu_dai" not in columns:
-            c.execute("ALTER TABLE HoaDon ADD COLUMN tong_sau_uu_dai REAL DEFAULT 0")
-        if "tong_cuoi" not in columns:
-            c.execute("ALTER TABLE HoaDon ADD COLUMN tong_cuoi REAL DEFAULT 0")
-        conn.commit()
-    except Exception as e:
-        print("Lỗi khi thêm các cột vào HoaDon:", e)
-    finally:
-        conn.close()
+    # Add missing columns to existing tables
+    _add_column_if_missing("SanPham", "don_vi", "don_vi TEXT DEFAULT ''")
+    _add_column_if_missing("GiaoDichQuy", "ghi_chu", "ghi_chu TEXT")
+    _add_column_if_missing("LogKho", "loai_gia", "loai_gia TEXT")
+    
+    # Add multiple columns to HoaDon
+    for col_name, col_def in [
+        ("tong_tien", "tong_tien REAL DEFAULT 0"),
+        ("uu_dai", "uu_dai REAL DEFAULT 0"),
+        ("tong_sau_uu_dai", "tong_sau_uu_dai REAL DEFAULT 0"),
+        ("tong_cuoi", "tong_cuoi REAL DEFAULT 0"),
+    ]:
+        _add_column_if_missing("HoaDon", col_name, col_def)
 
     conn = ket_noi()
     c = conn.cursor()
