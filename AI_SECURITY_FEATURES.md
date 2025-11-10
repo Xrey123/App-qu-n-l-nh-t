@@ -3,13 +3,15 @@
 ## ✅ ĐÃ HOÀN THÀNH
 
 ### 1. 🔒 PERMISSION SYSTEM
+
 **File:** `ai_system/hybrid.py` - Hàm `_check_permission()`
 
 **Chức năng:** AI kiểm tra quyền user trước khi trả lời
 
 **Staff KHÔNG được xem:**
+
 - ❌ Sản phẩm
-- ❌ Lịch sử giá  
+- ❌ Lịch sử giá
 - ❌ Quản lý User
 - ❌ Chênh lệch
 - ❌ Xuất bổ
@@ -18,6 +20,7 @@
 - ❌ Nhập đầu kỳ
 
 **Staff ĐƯỢC xem:**
+
 - ✅ Trang chủ
 - ✅ Ca bán hàng (Nhận hàng + Bán hàng)
 - ✅ Chi tiết bán
@@ -26,6 +29,7 @@
 - ✅ Cài đặt
 
 **Test case:**
+
 ```python
 # Staff hỏi tab Sản phẩm
 ai_staff = HybridAI(current_user_role="staff")
@@ -38,17 +42,20 @@ response = ai_staff.ask("tab san pham lam gi")
 ---
 
 ### 2. 🛡️ IT SECURITY FILTER
+
 **File:** `ai_system/hybrid.py` - Hàm `_is_it_sensitive_question()`
 
 **Chức năng:** AI KHÔNG tiết lộ thông tin kỹ thuật
 
 **Filtered keywords (50+):**
+
 - Database: `database`, `db`, `sqlite`, `bảng`, `table`, `cột`, `column`, `sql`, `query`, `schema`
 - Code: `main_gui.py`, `.py`, `python`, `code`, `source`, `file`, `path`, `class`, `function`
 - Security: `api key`, `password`, `pwd`, `token`, `secret`, `hash`, `hack`, `exploit`, `injection`
 - System: `server`, `port`, `localhost`, `config.json`, `architecture`
 
 **Test cases:**
+
 ```python
 # 1. Hỏi về database
 response = ai.ask("bang SanPham co nhung cot gi")
@@ -64,11 +71,13 @@ response = ai.ask("cau lenh SQL de xem san pham")
 ---
 
 ### 3. 🎯 AUTO TAB SWITCHING
+
 **File:** `ai_system/hybrid.py` - Hàm `_auto_switch_tab()`
 
 **Chức năng:** Khi AI trả lời về tab nào, tự động chuyển đến tab đó
 
 **Tab mapping:**
+
 ```python
 {
     "trang chủ": 0,
@@ -91,17 +100,19 @@ response = ai.ask("cau lenh SQL de xem san pham")
 ```
 
 **Cách hoạt động:**
+
 1. User hỏi: "hướng dẫn nhận hàng"
 2. AI trả lời: "📌 Tab Ca bán hàng → Sub-tab Nhận hàng..."
 3. **App tự động chuyển đến tab Ca bán hàng, sub-tab Nhận hàng**
 4. User thấy luôn giao diện đúng tab!
 
 **Code logic:**
+
 ```python
 def _auto_switch_tab(self, question: str):
     if not self.main_window:
         return
-    
+
     # Find matching tab
     for keyword in question:
         if "nhan hang" in keyword:
@@ -157,11 +168,13 @@ TEST AI FEATURES
 ## 🚀 CÁCH SỬ DỤNG
 
 ### 1. Test Permission với Staff
+
 ```bash
 python test_ai_simple.py
 ```
 
 ### 2. Test trong App
+
 ```bash
 python main_gui.py
 # Login với user Staff
@@ -170,6 +183,7 @@ python main_gui.py
 ```
 
 ### 3. Test Auto Tab Switching
+
 ```bash
 python main_gui.py
 # Login với user Admin
@@ -202,6 +216,7 @@ User: "tab xuất bổ xài sao"
 ```
 
 ### Updated System Prompt:
+
 ```python
 """
 🚫 QUY TẮC BẢO MẬT:
@@ -232,7 +247,7 @@ User: "tab xuất bổ xài sao"
 
 - `ai_system/hybrid.py` - Added 3 methods:
   - `_check_permission()` - 30 lines
-  - `_is_it_sensitive_question()` - 25 lines  
+  - `_is_it_sensitive_question()` - 25 lines
   - `_auto_switch_tab()` - 85 lines
 - `test_ai_simple.py` - New test file
 - System prompt updated với IT security rules

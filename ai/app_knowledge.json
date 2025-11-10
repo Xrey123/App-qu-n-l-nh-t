@@ -88,15 +88,22 @@
       "giải thích": "Hỏi về sản phẩm, hướng dẫn, workflow, báo cáo"
     },
     "Quản lý User": {
-      "chức năng": "Quản lý tài khoản người dùng",
+      "chức năng": "Quản lý tài khoản người dùng và xem số dư",
       "quyền": "Admin",
       "cột": ["ID", "Username", "Role", "Số dư"],
       "nút": ["Thêm user", "Xóa user", "Chuyển tiền", "Lịch sử quỹ"],
+      "giải thích": "Tab này hiển thị danh sách TẤT CẢ user với số dư của từng người. Chỉ Admin mới xem được.",
+      "câu_hỏi_thường_gặp": {
+        "số dư user": "Vào tab 'Quản lý User' để xem số dư của tất cả user. Cột 'Số dư' hiển thị số tiền hiện có của từng user.",
+        "số dư các user": "Tab 'Quản lý User' hiển thị cột 'Số dư' cho từng user.",
+        "ai có tiền": "Xem cột 'Số dư' trong tab 'Quản lý User'"
+      },
       "vai_trò": {
         "admin": "Full quyền: thêm/xóa user, sản phẩm, xem tất cả báo cáo",
         "accountant": "Xem báo cáo, sản phẩm, hóa đơn (không thêm/xóa user)",
         "staff": "Chỉ bán hàng, nhận hàng, xem hóa đơn của mình"
-      }
+      },
+      "keywords": ["quản lý user", "quan ly user", "user management", "số dư user", "so du user", "danh sách user"]
     },
     "Chênh lệch": {
       "chức năng": "Xử lý chênh lệch kho (kiểm kê phát hiện thừa/thiếu)",

@@ -3,6 +3,7 @@
 ## 🎯 MỤC ĐÍCH
 
 Sửa lại nút "Nộp tiền" ở tab **Chi tiết bán** để:
+
 - **Rõ ràng hơn**: Chuyển tiền từ nhân viên bán hàng → Accountant
 - **Theo dõi nợ**: Biết ca nào còn nợ, ca nào đã thanh toán
 - **Hỗ trợ xuất bổ**: Accountant có tiền để xuất bổ cho khách
@@ -14,10 +15,12 @@ Sửa lại nút "Nộp tiền" ở tab **Chi tiết bán** để:
 ### 1. **Giao diện Tab Chi tiết bán**
 
 **TRƯỚC:**
+
 - Cột: "Số dư"
 - Nút: "Nộp tiền" (không rõ nộp cho ai)
 
 **SAU:**
+
 - Cột: "Số dư (Nợ)" - rõ ràng là số tiền còn nợ
 - Nút: "💰 Nộp cho Accountant" (màu xanh, nổi bật)
 - Khi nợ = 0 → Hiện "✅ Đã thanh toán" (màu xanh)
@@ -25,6 +28,7 @@ Sửa lại nút "Nộp tiền" ở tab **Chi tiết bán** để:
 ### 2. **Dialog Nộp tiền**
 
 **TRƯỚC:**
+
 ```
 Tiêu đề: "Nộp tiền"
 Từ: username
@@ -33,6 +37,7 @@ Số dư hiện tại: xxx
 ```
 
 **SAU:**
+
 ```
 Tiêu đề: "💰 Nộp tiền cho Accountant"
 Header: "PHIẾU NỘP TIỀN CHO ACCOUNTANT"
@@ -48,11 +53,13 @@ Số tiền còn nợ: xxx (màu đỏ, size 14pt)
 ### 3. **Thông báo khi nộp tiền thành công**
 
 **TRƯỚC:**
+
 ```
 "Nộp tiền thành công! Số dư còn lại: xxx"
 ```
 
 **SAU:**
+
 ```
 ✅ Nộp tiền thành công!
 
@@ -66,6 +73,7 @@ Accountant giờ có tiền để xuất bổ cho khách!
 ### 4. **AI Knowledge Update**
 
 Cập nhật `ai/app_knowledge_enhanced.json`:
+
 - Thêm mục đích: "Theo dõi các ca bán hàng nào còn nợ"
 - Workflow chi tiết 7 bước
 - Lưu ý về cách tính số dư (Nợ)
@@ -78,25 +86,25 @@ Cập nhật `ai/app_knowledge_enhanced.json`:
 ```
 1. Nhân viên bán hàng
    └─→ Tạo hóa đơn trong tab "Bán hàng"
-   
+
 2. Hóa đơn xuất hiện
    └─→ Tab "Chi tiết bán"
    └─→ Hiện "Số dư (Nợ)" = Tiền phải nộp
-   
+
 3. Nhân viên click
    └─→ "💰 Nộp cho Accountant"
-   
+
 4. Dialog hiện ra
    └─→ Nhập số tiền (mặc định = toàn bộ nợ)
    └─→ Đếm tờ tiền (tùy chọn)
-   
+
 5. Xác nhận
    └─→ Tiền chuyển từ nhân viên → Accountant
    └─→ Lưu vào bảng GiaoDichQuy (kèm hoadon_id)
-   
+
 6. Accountant có tiền
    └─→ Dùng để xuất bổ cho khách
-   
+
 7. Theo dõi
    └─→ Tab "Sổ quỹ > Lịch sử giao dịch"
    └─→ Xem chi tiết từng lần nộp
@@ -109,11 +117,13 @@ Cập nhật `ai/app_knowledge_enhanced.json`:
 ### 1. `main_gui.py`
 
 **Line 2449-2452:** Đổi tên cột
+
 ```python
 "Số dư (Nợ)",  # Thay vì "Số dư"
 ```
 
 **Line 2569-2580:** Nút thông minh
+
 ```python
 if so_du > 0:
     btn_nop = QPushButton("💰 Nộp cho Accountant")
@@ -124,6 +134,7 @@ else:
 ```
 
 **Line 2754-2761:** Dialog title + content
+
 ```python
 dialog.setWindowTitle("💰 Nộp tiền cho Accountant")
 layout.addWidget(QLabel(f"<h2>PHIẾU NỘP TIỀN CHO ACCOUNTANT</h2>"))
@@ -133,6 +144,7 @@ layout.addWidget(QLabel("<i>💡 Nộp tiền để Accountant có tiền xuất
 ```
 
 **Line 2852-2868:** Success message
+
 ```python
 show_success(
     self,
@@ -147,6 +159,7 @@ show_success(
 ### 2. `ai/app_knowledge_enhanced.json`
 
 **Line 138-167:** Complete update cho tab "Chi tiết bán"
+
 ```json
 {
   "chức năng": "Xem chi tiết từng ca bán hàng và quản lý nợ (thanh toán cho Accountant)",
@@ -167,24 +180,28 @@ show_success(
 ### Test Cases:
 
 1. **Hiển thị nút đúng:**
+
    - Số dư > 0 → Nút "💰 Nộp cho Accountant" (xanh)
    - Số dư = 0 → Label "✅ Đã thanh toán" (xanh)
 
 2. **Dialog nộp tiền:**
+
    - Tiêu đề: "💰 Nộp tiền cho Accountant"
    - Hiện rõ: Từ nhân viên → Đến Accountant
    - Số tiền mặc định = toàn bộ nợ
 
 3. **Chuyển tiền:**
+
    - Tiền trừ từ nhân viên
    - Tiền cộng vào Accountant
    - Lưu vào GiaoDichQuy kèm hoadon_id
 
 4. **AI hiểu đúng:**
+
    ```
    Q: "tab chi tiet ban lam gi"
    A: "Xem chi tiết từng ca bán hàng và quản lý nợ..."
-   
+
    Q: "cach nop tien cho accountant"
    A: "Click 'Nộp cho Accountant' → Nhập số tiền..."
    ```
@@ -210,17 +227,20 @@ Kết quả: ✅ AI trả lời đúng tất cả câu hỏi về chức năng m
 ## 🎉 KẾT QUẢ
 
 ✅ **Tab Chi tiết bán giờ:**
+
 - Rõ ràng mục đích: Nộp tiền cho Accountant
 - Dễ theo dõi: Ca nào còn nợ, ca nào đã thanh toán
 - UX tốt: Màu sắc, icon, text rõ ràng
 - Hỗ trợ workflow: Accountant có tiền → Xuất bổ cho khách
 
 ✅ **AI hiểu đúng:**
+
 - Giải thích chức năng tab chính xác
 - Hướng dẫn workflow đúng
 - Trả lời câu hỏi về nợ, thanh toán
 
 ✅ **Code clean:**
+
 - Không phá logic cũ
 - Chỉ cập nhật UI/UX + text
 - Database logic giữ nguyên

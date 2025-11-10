@@ -8,6 +8,7 @@
 ## 📋 TÓM TẮT
 
 Điều chỉnh **IT Security Filter** để AI có thể:
+
 - ✅ **XEM** dữ liệu từ các bảng quan trọng (READ-ONLY)
 - ❌ **CHẶN** truy cập bảng Users (trừ username/role)
 - ❌ **CHẶN** hoàn toàn việc SỬA/XÓA dữ liệu
@@ -20,15 +21,15 @@
 
 AI được phép xem dữ liệu từ các bảng:
 
-| Bảng | Cho phép xem |
-|------|--------------|
-| **SanPham** | ✅ Tên, giá lẻ, giá buôn, giá VIP, tồn kho |
-| **ChiTietBan** | ✅ Sản phẩm đã bán, số lượng, giá |
-| **HoaDon** | ✅ ID hóa đơn, khách hàng, tổng tiền, ngày |
-| **GiaoDichQuy** | ✅ User chuyển/nhận, số tiền, ngày, ghi chú |
-| **ChenhLechXuatBo** | ✅ Chênh lệch công đoạn, user, sản phẩm |
-| **DauKyXuatBo** | ✅ Sản phẩm đầu kỳ chưa xuất hóa đơn |
-| **Users** | ⚠️ CHỈ username, role (KHÔNG password) |
+| Bảng                | Cho phép xem                                |
+| ------------------- | ------------------------------------------- |
+| **SanPham**         | ✅ Tên, giá lẻ, giá buôn, giá VIP, tồn kho  |
+| **ChiTietBan**      | ✅ Sản phẩm đã bán, số lượng, giá           |
+| **HoaDon**          | ✅ ID hóa đơn, khách hàng, tổng tiền, ngày  |
+| **GiaoDichQuy**     | ✅ User chuyển/nhận, số tiền, ngày, ghi chú |
+| **ChenhLechXuatBo** | ✅ Chênh lệch công đoạn, user, sản phẩm     |
+| **DauKyXuatBo**     | ✅ Sản phẩm đầu kỳ chưa xuất hóa đơn        |
+| **Users**           | ⚠️ CHỈ username, role (KHÔNG password)      |
 
 ### 2. **CÁC CÂU HỎI ĐƯỢC PHÉP**
 
@@ -59,7 +60,7 @@ AI được phép xem dữ liệu từ các bảng:
 ❌ "Cấu trúc bảng ChiTietBan"
 ```
 
-→ AI sẽ trả lời: *"🔒 Xin lỗi, tôi không thể cung cấp thông tin về kỹ thuật hệ thống..."*
+→ AI sẽ trả lời: _"🔒 Xin lỗi, tôi không thể cung cấp thông tin về kỹ thuật hệ thống..."_
 
 ### 2. **CHẶN HOÀN TOÀN: THÔNG TIN BẢO MẬT**
 
@@ -102,7 +103,7 @@ AI được phép xem dữ liệu từ các bảng:
 
 ```python
 data_query_keywords = [
-    "bao nhiêu", "còn", "tồn kho", "danh sách", "liệt kê", "tổng", 
+    "bao nhiêu", "còn", "tồn kho", "danh sách", "liệt kê", "tổng",
     "số lượng", "hóa đơn", "sản phẩm", "chi tiết bán", "giao dịch",
     "đã bán", "doanh thu", "chênh lệch", "xuất bỏ", "công đoàn",
     "sổ quỹ", "giá", "nhớt", "khách", "user nào", "username"  # ← MỚI
@@ -113,10 +114,10 @@ data_query_keywords = [
 
 ```python
 forbidden_in_data = [
-    "password", "mật khẩu user", "pwd", "hash password", "token", 
+    "password", "mật khẩu user", "pwd", "hash password", "token",
     "api key trong",  # ← Chi tiết hơn
-    "schema database", "cột nào", "column nào", "primary key", 
-    "foreign key", "cấu trúc bảng", "bảng có những cột", 
+    "schema database", "cột nào", "column nào", "primary key",
+    "foreign key", "cấu trúc bảng", "bảng có những cột",
     "table structure", "create table"  # ← Chi tiết hơn
 ]
 ```
@@ -126,14 +127,14 @@ forbidden_in_data = [
 ```python
 dangerous_keywords = [
     # SQL modification (chặn HOÀN TOÀN)
-    "update sanpham", "delete from", "drop table", 
+    "update sanpham", "delete from", "drop table",
     "insert into", "alter table", "truncate",
-    
+
     # Code & Files
     "main_gui.py", ".py file", "python code", "source code",
-    
+
     # Security CRITICAL
-    "password user", "pwd admin", "mật khẩu hash", 
+    "password user", "pwd admin", "mật khẩu hash",
     "api key trong db", "hack", "exploit"
 ]
 ```
@@ -168,6 +169,7 @@ File test: `test_ai_database_security.py`
 ### **Cho User Thông Thường:**
 
 Bây giờ bạn có thể hỏi AI:
+
 - "Còn bao nhiêu PLC KOMAT?" → ✅ Trả lời số lượng tồn kho
 - "Doanh thu hôm nay bao nhiêu?" → ✅ Tra cứu doanh thu
 - "User nào là admin?" → ✅ Hiển thị danh sách admin
@@ -175,6 +177,7 @@ Bây giờ bạn có thể hỏi AI:
 ### **Cho Admin/IT:**
 
 AI **KHÔNG** cung cấp:
+
 - Cấu trúc database chi tiết (cột, key, schema)
 - Password, token, API key
 - SQL commands để sửa dữ liệu
@@ -208,6 +211,7 @@ Hoặc thay đổi `data_query_keywords` và `dangerous_keywords` trong file `ai
 ## 📞 LIÊN HỆ
 
 Nếu cần điều chỉnh thêm filter, sửa file:
+
 - `ai_system/hybrid.py` (dòng 549-615)
 - `test_ai_database_security.py` (test cases)
 

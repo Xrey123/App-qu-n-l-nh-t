@@ -3,13 +3,14 @@ Test trực tiếp Database Query - Không qua Groq API
 """
 
 import sys
-sys.path.append('.')
+
+sys.path.append(".")
 
 from ai_system.hybrid import HybridAI
 
-print("="*60)
+print("=" * 60)
 print("  TEST DATABASE QUERY TRỰC TIẾP")
-print("="*60)
+print("=" * 60)
 
 # Khởi tạo AI
 ai = HybridAI(db_path="fapp.db", current_user_role="admin")
@@ -30,19 +31,19 @@ for i, question in enumerate(test_questions, 1):
     print(f"\n{'='*60}")
     print(f"📝 CÂU HỎI {i}: {question}")
     print(f"{'='*60}")
-    
+
     # Tìm SQL template
     sql = ai._find_query_template(question)
-    
+
     if sql:
         print(f"\n🔍 SQL: {sql}")
-        
+
         # Query database
         result = ai._query_db(sql)
-        
+
         if result:
             print(f"\n📊 RAW RESULT: {result[:3]}")  # Hiển thị 3 dòng đầu
-            
+
             # Format result
             formatted = ai._format_db_result(result, question)
             print(f"\n💬 FORMATTED OUTPUT:")
@@ -53,6 +54,6 @@ for i, question in enumerate(test_questions, 1):
         print("\n❌ KHÔNG TÌM THẤY SQL TEMPLATE")
         print("   → AI sẽ dùng Groq/Phi3 để trả lời")
 
-print("\n" + "="*60)
+print("\n" + "=" * 60)
 print("  KẾT THÚC TEST")
-print("="*60)
+print("=" * 60)

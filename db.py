@@ -19,7 +19,7 @@ def _add_column_if_missing(table_name: str, column_name: str, column_def: str):
         c = conn.cursor()
         c.execute(f"PRAGMA table_info({table_name})")
         columns = [row[1] for row in c.fetchall()]
-        
+
         if column_name not in columns:
             logger.info(f"Adding column '{column_name}' to {table_name}...")
             c.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_def}")
@@ -31,7 +31,9 @@ def _add_column_if_missing(table_name: str, column_name: str, column_def: str):
         logger.error(f"Failed to add column '{column_name}' to {table_name}: {e}")
         raise
     except sqlite3.DatabaseError as e:
-        logger.error(f"Database error while adding column to {table_name}: {e}", exc_info=True)
+        logger.error(
+            f"Database error while adding column to {table_name}: {e}", exc_info=True
+        )
         raise
     finally:
         try:
@@ -45,7 +47,7 @@ def khoi_tao_db():
     _add_column_if_missing("SanPham", "don_vi", "don_vi TEXT DEFAULT ''")
     _add_column_if_missing("GiaoDichQuy", "ghi_chu", "ghi_chu TEXT")
     _add_column_if_missing("LogKho", "loai_gia", "loai_gia TEXT")
-    
+
     # Add multiple columns to HoaDon
     for col_name, col_def in [
         ("tong_tien", "tong_tien REAL DEFAULT 0"),

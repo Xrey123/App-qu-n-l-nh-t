@@ -26,24 +26,26 @@ _pool_max_size = 10
 
 class DatabaseError(Exception):
     """Base exception for database operations"""
+
     pass
 
 
 class ConnectionPoolError(DatabaseError):
     """Exception for connection pool issues"""
+
     pass
 
 
 def get_connection(timeout: float = 30.0) -> sqlite3.Connection:
     """
     Get a database connection from the pool or create a new one.
-    
+
     Args:
         timeout: Database lock timeout in seconds
-    
+
     Returns:
         sqlite3.Connection instance
-    
+
     Raises:
         ConnectionPoolError: If unable to get connection
     """
@@ -58,7 +60,7 @@ def get_connection(timeout: float = 30.0) -> sqlite3.Connection:
                 return conn
             except sqlite3.Error as e:
                 logger.warning(f"Stale connection in pool, creating new one: {e}")
-        
+
         # Create new connection
         try:
             conn = sqlite3.connect(DB_NAME, timeout=timeout)
@@ -73,13 +75,13 @@ def get_connection(timeout: float = 30.0) -> sqlite3.Connection:
 def release_connection(conn: sqlite3.Connection):
     """
     Release a connection back to the pool.
-    
+
     Args:
         conn: Connection to release
     """
     if conn is None:
         return
-    
+
     with _pool_lock:
         if len(_connection_pool) < _pool_max_size:
             _connection_pool.append(conn)
@@ -98,16 +100,16 @@ def get_db_connection(timeout: float = 30.0):
     """
     Context manager for database connections.
     Automatically releases connection when done.
-    
+
     Usage:
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM Users")
             results = cursor.fetchall()
-    
+
     Args:
         timeout: Database lock timeout in seconds
-    
+
     Yields:
         sqlite3.Connection instance
     """
@@ -132,7 +134,7 @@ def ket_noi():
     """
     Legacy function for backward compatibility.
     Returns a connection that MUST be closed manually.
-    
+
     DEPRECATED: Use get_db_connection() context manager instead.
     """
     return get_connection()
@@ -152,4 +154,5 @@ def clear_connection_pool():
 
 # Auto-cleanup on module unload
 import atexit
+
 atexit.register(clear_connection_pool)

@@ -4,9 +4,9 @@ Demo AI Features - Run in actual app
 Bạn có thể copy các câu hỏi này vào AI panel trong app
 """
 
-print("="*70)
+print("=" * 70)
 print("AI DEMO QUESTIONS - Copy vao AI panel trong app")
-print("="*70)
+print("=" * 70)
 
 print("\n1. TEST AUTO TAB SWITCHING:")
 print("   Copy cac cau hoi nay vao AI:")
@@ -32,7 +32,7 @@ print("   - 'tab ca ban hang co nhung gi'  -> AI liet ke 2 sub-tabs")
 print("   - 'huong dan ban hang'  -> AI huong dan workflow")
 print("   - 'cach tinh gia buon'  -> AI giai thich logic")
 
-print("\n" + "="*70)
+print("\n" + "=" * 70)
 print("MOI APP:")
 print("  python main_gui.py")
-print("="*70)
+print("=" * 70)

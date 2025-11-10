@@ -6,17 +6,15 @@ from utils.db_helpers import execute_query, db_transaction
 def lay_ton_kho(sanpham_id):
     """
     Lấy số lượng tồn kho của một sản phẩm
-    
+
     Args:
         sanpham_id: ID sản phẩm
-        
+
     Returns:
         int: Số lượng tồn kho, hoặc None nếu không tìm thấy
     """
     result = execute_query(
-        "SELECT ton_kho FROM SanPham WHERE id = ?",
-        (sanpham_id,),
-        fetch_one=True
+        "SELECT ton_kho FROM SanPham WHERE id = ?", (sanpham_id,), fetch_one=True
     )
     return result[0] if result else None
 
@@ -24,18 +22,17 @@ def lay_ton_kho(sanpham_id):
 def cap_nhat_ton_kho(sanpham_id, so_luong_moi):
     """
     Cập nhật tồn kho của một sản phẩm
-    
+
     Args:
         sanpham_id: ID sản phẩm
         so_luong_moi: Số lượng tồn kho mới
-        
+
     Returns:
         bool: True nếu thành công, False nếu thất bại
     """
     try:
         execute_query(
-            "UPDATE SanPham SET ton_kho = ? WHERE id = ?",
-            (so_luong_moi, sanpham_id)
+            "UPDATE SanPham SET ton_kho = ? WHERE id = ?", (so_luong_moi, sanpham_id)
         )
         return True
     except:

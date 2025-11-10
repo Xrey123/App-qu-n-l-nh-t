@@ -131,20 +131,18 @@ def lay_lich_su_quy(user_id=None):
 def lay_user_phone(user_id):
     """
     Lấy số điện thoại của user
-    
+
     Args:
         user_id: ID của user
-    
+
     Returns:
         Số phone hoặc None nếu không có
-    
+
     Note: Cần thêm cột phone vào bảng Users trước:
         ALTER TABLE Users ADD COLUMN phone TEXT;
     """
     result = execute_query(
-        "SELECT phone FROM Users WHERE id=?", 
-        (user_id,), 
-        fetch_one=True
+        "SELECT phone FROM Users WHERE id=?", (user_id,), fetch_one=True
     )
     return result[0] if result and result[0] else None
 
@@ -152,26 +150,23 @@ def lay_user_phone(user_id):
 def cap_nhat_user_phone(user_id, phone):
     """
     Cập nhật số điện thoại cho user
-    
+
     Args:
         user_id: ID của user
         phone: Số điện thoại (format: 84xxxxxxxxx)
-    
+
     Returns:
         True nếu thành công
     """
     # Validate phone format
-    if not phone.startswith('84'):
+    if not phone.startswith("84"):
         return False, "Phone phải bắt đầu bằng 84 (VD: 84987654321)"
-    
+
     if len(phone) < 11 or len(phone) > 12:
         return False, "Phone không hợp lệ"
-    
-    success = execute_update(
-        "UPDATE Users SET phone=? WHERE id=?",
-        (phone, user_id)
-    )
-    
+
+    success = execute_update("UPDATE Users SET phone=? WHERE id=?", (phone, user_id))
+
     if success:
         return True, None
     else:
@@ -181,17 +176,16 @@ def cap_nhat_user_phone(user_id, phone):
 def lay_users_co_no(threshold=-100000):
     """
     Lấy danh sách users đang nợ
-    
+
     Args:
         threshold: Ngưỡng nợ tối thiểu (VD: -100000 = nợ > 100k)
-    
+
     Returns:
         List of (user_id, username, phone, so_du)
     """
     result = execute_query(
         "SELECT id, username, phone, so_du FROM Users WHERE so_du < ?",
         (threshold,),
-        fetch_all=True
+        fetch_all=True,
     )
     return result or []
-

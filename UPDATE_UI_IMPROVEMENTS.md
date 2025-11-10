@@ -1,6 +1,7 @@
 # 🎨 CẬP NHẬT GIAO DIỆN SHOPFLOW
 
 ## 📅 Ngày cập nhật: 08.11.2024
+
 ## 🔖 Version: 2.5.0
 
 ---
@@ -8,12 +9,14 @@
 ## ✨ CÁC TÍNH NĂNG MỚI
 
 ### 1️⃣ **Tự động điều chỉnh cột tên sản phẩm**
+
 - ✅ Cột "Tên sản phẩm" tự động mở rộng để hiển thị đầy đủ
 - ✅ Các cột khác tự động thu nhỏ theo nội dung
 - ✅ Áp dụng cho TẤT CẢ các bảng trong ứng dụng
 - 📍 **File thay đổi:** `main_gui.py` - hàm `setup_table()` (dòng 1165)
 
 **Chi tiết kỹ thuật:**
+
 ```python
 # Tự động phát hiện cột chứa "sản phẩm" hoặc "tên"
 # Set ResizeMode = Stretch cho cột sản phẩm
@@ -23,6 +26,7 @@
 ---
 
 ### 2️⃣ **Đổi tên ứng dụng: ShopFlow**
+
 - ✅ Tên mới: **"ShopFlow - Quản lý bán hàng thông minh"**
 - ✅ Ngắn gọn, hiện đại, dễ nhớ
 - ✅ Thay thế "Hệ thống quản lý bán hàng"
@@ -33,6 +37,7 @@
 ---
 
 ### 3️⃣ **Tab Cài đặt di chuyển ra sau cùng**
+
 - ✅ Thứ tự tab mới (cho Accountant):
   1. 🏠 Trang chủ
   2. 📦 Sản phẩm
@@ -51,6 +56,7 @@
 ---
 
 ### 4️⃣ **Splash Screen với Logo và Animation** 🌟
+
 - ✅ Màn hình loading đẹp mắt khi khởi động app
 - ✅ Hiển thị logo ShopFlow (🛒 nếu không có logo.png)
 - ✅ Gradient background (#667eea → #764ba2)
@@ -70,19 +76,23 @@
 ### 5️⃣ **Tab Cài đặt chia thành 2 tab phụ** 🔧
 
 #### 🤖 **Tab 1: AI Settings**
+
 - Cấu hình Groq API (Online Mode)
 - Trạng thái AI (Online/Offline)
 - Test kết nối
 - Hướng dẫn cài đặt
 
 #### ℹ️ **Tab 2: Information**
+
 - 📱 **Thông tin phiên bản:**
+
   - Tên viết tắt: **SF**
   - Version: **2.5.0**
   - Ngày cập nhật: **08.11.2024**
   - Build: **Stable**
 
 - ✨ **Tính năng chính:**
+
   - Quản lý sản phẩm và tồn kho thông minh
   - Hệ thống bán hàng đa loại giá (Lẻ, Buôn, VIP)
   - Báo cáo doanh thu và công đoàn chi tiết
@@ -91,6 +101,7 @@
   - Sổ quỹ và lịch sử giao dịch đầy đủ
 
 - 👨‍💻 **Thông tin nhà phát triển:**
+
   - Developer: ShopFlow Team
   - Support: support@shopflow.vn
   - Website: www.shopflow.vn
@@ -104,14 +115,14 @@
 
 ## 🎯 TÓM TẮT THAY ĐỔI
 
-| # | Tính năng | Trạng thái | Dòng code |
-|---|-----------|-----------|-----------|
-| 1 | Cột tên sản phẩm auto-stretch | ✅ Hoàn tất | 1165-1208 |
-| 2 | Đổi tên app → ShopFlow | ✅ Hoàn tất | 305 |
-| 3 | Di chuyển tab Cài đặt | ✅ Hoàn tất | 415-456 |
-| 4 | Splash screen với animation | ✅ Hoàn tất | 180-298, 8090-8130 |
-| 5 | Tab Cài đặt → 2 tab phụ | ✅ Hoàn tất | 4529-4760 |
-| 6 | Tab Information với version | ✅ Hoàn tất | 4665-4760 |
+| #   | Tính năng                     | Trạng thái  | Dòng code          |
+| --- | ----------------------------- | ----------- | ------------------ |
+| 1   | Cột tên sản phẩm auto-stretch | ✅ Hoàn tất | 1165-1208          |
+| 2   | Đổi tên app → ShopFlow        | ✅ Hoàn tất | 305                |
+| 3   | Di chuyển tab Cài đặt         | ✅ Hoàn tất | 415-456            |
+| 4   | Splash screen với animation   | ✅ Hoàn tất | 180-298, 8090-8130 |
+| 5   | Tab Cài đặt → 2 tab phụ       | ✅ Hoàn tất | 4529-4760          |
+| 6   | Tab Information với version   | ✅ Hoàn tất | 4665-4760          |
 
 ---
 
@@ -130,9 +141,11 @@ python main_gui.py
 ```
 
 ### 1. Test Splash Screen
+
 ```bash
 python start.py
 ```
+
 - Kiểm tra màn hình loading xuất hiện với:
   - Logo ShopFlow (🛒)
   - Text "ShopFlow - Quản lý bán hàng thông minh"
@@ -142,21 +155,25 @@ python start.py
 - Đợi ~2 giây trước khi vào màn hình đăng nhập
 
 ### 2. Test Tên App
+
 - Đăng nhập vào app
 - Kiểm tra title bar: **"ShopFlow - Quản lý bán hàng thông minh"**
 
 ### 3. Test Cột Sản Phẩm
+
 - Vào tab **Sản phẩm**
 - Kiểm tra cột "Tên" có mở rộng đầy đủ không
 - Các cột khác (ID, Giá, Tồn kho) tự động thu nhỏ vừa đủ
 
 ### 4. Test Tab Cài Đặt
+
 - Vào tab **⚙️ Cài đặt** (tab cuối cùng)
 - Kiểm tra 2 tab phụ:
   - 🤖 **AI Settings** (nội dung cũ)
   - ℹ️ **Information** (thông tin mới)
 
 ### 5. Test Tab Information
+
 - Vào tab **Information**
 - Xác nhận hiển thị:
   - Tên viết tắt: SF
@@ -206,6 +223,7 @@ python start.py
 ## 📦 FILES ĐƯỢC CẬP NHẬT
 
 1. **main_gui.py** (8115 dòng)
+
    - Class `SplashScreen` (mới)
    - Hàm `setup_table()` (sửa)
    - Hàm `init_tab_settings()` (sửa)
@@ -219,17 +237,18 @@ python start.py
 
 ## 🔄 VERSION HISTORY
 
-| Version | Ngày | Mô tả |
-|---------|------|-------|
-| 2.5.0 | 08.11.2024 | UI improvements: ShopFlow branding, splash screen, tab reorganization, column auto-sizing |
-| 2.4.x | 07.11.2024 | Nộp tiền cho Accountant, AI security features |
-| 2.3.x | 06.11.2024 | AI improvements, auto tab switching |
+| Version | Ngày       | Mô tả                                                                                     |
+| ------- | ---------- | ----------------------------------------------------------------------------------------- |
+| 2.5.0   | 08.11.2024 | UI improvements: ShopFlow branding, splash screen, tab reorganization, column auto-sizing |
+| 2.4.x   | 07.11.2024 | Nộp tiền cho Accountant, AI security features                                             |
+| 2.3.x   | 06.11.2024 | AI improvements, auto tab switching                                                       |
 
 ---
 
 ## 💡 GHI CHÚ KỸ THUẬT
 
 ### Splash Screen
+
 - Sử dụng `QTimer.singleShot()` để tránh blocking UI thread
 - `QApplication.processEvents()` để cập nhật trạng thái real-time
 - Frameless window với gradient background

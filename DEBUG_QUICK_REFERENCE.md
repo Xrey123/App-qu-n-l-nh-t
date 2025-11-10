@@ -3,7 +3,9 @@
 ## Vấn đề đã fix ✅
 
 ### 1. Debug Print Statements
+
 **Trước:**
+
 ```python
 print(f"Added row {row}")  # Debug
 print(f"Warning: Error formatting price")
@@ -11,6 +13,7 @@ print(f"Lỗi: {e}")
 ```
 
 **Sau:**
+
 ```python
 from utils.logging_config import get_logger
 logger = get_logger(__name__)
@@ -23,7 +26,9 @@ logger.error(f"Error: {e}", exc_info=True)
 ---
 
 ### 2. Generic Exception Handling
+
 **Trước:**
+
 ```python
 except Exception as e:
     print(f"Lỗi: {e}")
@@ -31,6 +36,7 @@ except Exception as e:
 ```
 
 **Sau:**
+
 ```python
 except sqlite3.IntegrityError as e:
     logger.error(f"Integrity error: {e}", exc_info=True)
@@ -43,7 +49,9 @@ except sqlite3.OperationalError as e:
 ---
 
 ### 3. Connection Management
+
 **Trước:**
+
 ```python
 conn = ket_noi()
 cursor = conn.cursor()
@@ -55,6 +63,7 @@ finally:
 ```
 
 **Sau:**
+
 ```python
 from utils.db_connection import get_db_connection
 
@@ -70,6 +79,7 @@ with get_db_connection() as conn:
 ## Cách sử dụng
 
 ### Logging Levels
+
 ```python
 logger.debug("Chi tiết debug")      # Chỉ xuất hiện trong file log
 logger.info("Thông tin")            # Xuất hiện trong file log
@@ -78,11 +88,13 @@ logger.error("Lỗi", exc_info=True)  # Console + file + full traceback
 ```
 
 ### Xem Logs
+
 - **File:** `logs/shopflow_YYYYMMDD.log`
 - **Console:** Chỉ WARNING và ERROR
 - **Format:** `[2025-11-08 21:25:26] [ERROR] [main_gui] Message`
 
 ### Enable Debug Mode
+
 ```bash
 # Windows CMD
 set DEBUG=true
@@ -97,13 +109,13 @@ python start.py
 
 ## Files đã thay đổi
 
-| File | Thay đổi |
-|------|----------|
-| `utils/logging_config.py` | ✨ NEW - Logging system |
-| `utils/db_connection.py` | ✨ NEW - Connection pool |
-| `utils/db_helpers.py` | ✅ Fixed exceptions + logging |
-| `db.py` | ✅ Added logging + better error handling |
-| `main_gui.py` | ✅ Added logger import + replaced key prints |
+| File                      | Thay đổi                                     |
+| ------------------------- | -------------------------------------------- |
+| `utils/logging_config.py` | ✨ NEW - Logging system                      |
+| `utils/db_connection.py`  | ✨ NEW - Connection pool                     |
+| `utils/db_helpers.py`     | ✅ Fixed exceptions + logging                |
+| `db.py`                   | ✅ Added logging + better error handling     |
+| `main_gui.py`             | ✅ Added logger import + replaced key prints |
 
 ---
 

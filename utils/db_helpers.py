@@ -13,6 +13,7 @@ logger = get_logger(__name__)
 
 class DatabaseOperationError(Exception):
     """Raised when database operation fails"""
+
     pass
 
 
@@ -26,7 +27,7 @@ def db_transaction():
         with db_transaction() as (conn, cursor):
             cursor.execute(...)
             # Tự động commit khi kết thúc block
-    
+
     Raises:
         DatabaseOperationError: When database operation fails
     """
@@ -68,7 +69,7 @@ def execute_query(query, params=None, fetch_one=False, fetch_all=False):
 
     Returns:
         Kết quả query hoặc None
-    
+
     Raises:
         DatabaseOperationError: When query fails
     """
@@ -76,7 +77,7 @@ def execute_query(query, params=None, fetch_one=False, fetch_all=False):
     try:
         conn = ket_noi()
         cursor = conn.cursor()
-        
+
         if params:
             cursor.execute(query, params)
         else:
@@ -113,7 +114,7 @@ def execute_update(query, params=None):
     try:
         conn = ket_noi()
         cursor = conn.cursor()
-        
+
         if params:
             cursor.execute(query, params)
         else:
@@ -124,12 +125,16 @@ def execute_update(query, params=None):
     except sqlite3.IntegrityError as e:
         if conn:
             conn.rollback()
-        logger.error(f"Integrity error in execute_update: {e}\nQuery: {query}", exc_info=True)
+        logger.error(
+            f"Integrity error in execute_update: {e}\nQuery: {query}", exc_info=True
+        )
         return False
     except sqlite3.OperationalError as e:
         if conn:
             conn.rollback()
-        logger.error(f"Operational error in execute_update: {e}\nQuery: {query}", exc_info=True)
+        logger.error(
+            f"Operational error in execute_update: {e}\nQuery: {query}", exc_info=True
+        )
         return False
     except sqlite3.DatabaseError as e:
         if conn:
@@ -146,6 +151,7 @@ def safe_execute(func):
     Decorator để bọc try/except cho các hàm database
     Tự động xử lý lỗi và đóng connection
     """
+
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
@@ -157,4 +163,3 @@ def safe_execute(func):
             return None
 
     return wrapper
-

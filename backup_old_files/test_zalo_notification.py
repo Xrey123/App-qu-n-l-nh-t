@@ -2,7 +2,11 @@
 Test Zalo Notification System
 """
 
-from utils.zalo_notification import ZaloNotifier, SimpleZaloNotifier, notify_user_balance
+from utils.zalo_notification import (
+    ZaloNotifier,
+    SimpleZaloNotifier,
+    notify_user_balance,
+)
 
 print("=" * 60)
 print("🧪 TEST ZALO NOTIFICATION SYSTEM")
@@ -30,17 +34,15 @@ if notifier.access_token and notifier.oa_id:
     test_phone = "84987654321"  # THAY SỐ PHONE THẬT Ở ĐÂY
     test_username = "Test User"
     test_balance = -500000
-    
+
     print(f"   Sending to: {test_phone}")
     print(f"   Username: {test_username}")
     print(f"   Balance: {test_balance:,} VNĐ")
-    
+
     success = notifier.send_balance_notification(
-        user_phone=test_phone,
-        username=test_username,
-        balance=test_balance
+        user_phone=test_phone, username=test_username, balance=test_balance
     )
-    
+
     if success:
         print("   ✅ Notification sent successfully!")
         print("   → Check Zalo app to verify message received")
@@ -56,12 +58,11 @@ print("\n✅ Test 3: Webhook Method")
 webhook_notifier = SimpleZaloNotifier()
 if webhook_notifier.webhook_url:
     print(f"   ✓ Webhook URL: {webhook_notifier.webhook_url[:40]}...")
-    
+
     success = webhook_notifier.send_balance_notification(
-        username="Test User",
-        balance=-300000
+        username="Test User", balance=-300000
     )
-    
+
     if success:
         print("   ✅ Webhook notification sent!")
     else:
@@ -74,23 +75,23 @@ else:
 print("\n✅ Test 4: Database Integration")
 try:
     from users import lay_tat_ca_user
-    
+
     users = lay_tat_ca_user()
     print(f"   ✓ Found {len(users)} users in database")
-    
+
     # Show users with negative balance
     users_with_debt = []
     for user_id, username, role, so_du in users:
         if so_du < 0:
             users_with_debt.append((username, so_du))
-    
+
     if users_with_debt:
         print(f"   ⚠️ {len(users_with_debt)} users with negative balance:")
         for username, balance in users_with_debt[:5]:  # Show first 5
             print(f"      - {username}: {balance:,.0f} VNĐ")
     else:
         print("   ✅ No users with negative balance")
-        
+
 except Exception as e:
     print(f"   ❌ Database error: {e}")
 

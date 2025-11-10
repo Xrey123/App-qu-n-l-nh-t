@@ -29,6 +29,7 @@
 ## 🎯 CÂU HỎI MẪU
 
 ### ✅ Được hỏi:
+
 ```
 "Còn bao nhiêu PLC KOMAT?"
 "Giá của PLC RACER 10 thùng?"
@@ -39,6 +40,7 @@
 ```
 
 ### ❌ Không được hỏi:
+
 ```
 "Bảng SanPham có những cột nào?"
 "Password của admin"
@@ -51,12 +53,14 @@
 ## 🚀 CHUYỂN ĐỔI MODE
 
 ### **Online Mode (Groq API)** - Khuyên dùng
+
 - ✅ Cực thông minh (Llama 3.3 70B)
 - ✅ Cực nhanh (1-2 giây)
 - ⚠️ Cần API key + internet
 - 📝 Lấy key: [groq.com](https://console.groq.com/keys) (FREE)
 
 ### **Offline Mode (Phi3:mini)**
+
 - ✅ Chạy local, không cần internet
 - ⚠️ Chậm hơn (5-10 giây)
 - ⚠️ Kém thông minh hơn
@@ -80,11 +84,13 @@
 AI **CHỈ XEM** dữ liệu, **KHÔNG SỬA/XÓA**
 
 **Được truy vấn:**
+
 - ✅ SanPham, ChiTietBan, HoaDon
 - ✅ GiaoDichQuy, ChenhLechXuatBo
 - ✅ Users (chỉ username/role)
 
 **Bị chặn:**
+
 - ❌ Cấu trúc database (cột, key, schema)
 - ❌ Thông tin bảo mật (password, token, API key)
 - ❌ SQL commands (UPDATE, DELETE, DROP)
@@ -95,11 +101,13 @@ AI **CHỈ XEM** dữ liệu, **KHÔNG SỬA/XÓA**
 ## 🧪 TEST
 
 Chạy test để kiểm tra bảo mật:
+
 ```bash
 python test_ai_database_security.py
 ```
 
 Kết quả mong đợi:
+
 - ✅ Cho phép query dữ liệu
 - ❌ Chặn query cấu trúc DB
 - ❌ Chặn password/token
@@ -149,11 +157,13 @@ A: KHÔNG! AI chỉ XEM, không bao giờ SỬA/XÓA
 ## ✨ CẬP NHẬT MỚI NHẤT (08/11/2024)
 
 ✅ **Điều chỉnh IT Security Filter:**
+
 - Cho phép AI xem dữ liệu từ database (READ-ONLY)
 - Chặn chặt chẽ hơn: chỉ chặn CẤU TRÚC + BẢO MẬT
 - Test coverage: 100% (20/20 test cases pass)
 
 ✅ **Tài liệu:**
+
 - AI_CAPABILITIES_COMPLETE.md (13 mục chi tiết)
 - AI_DATABASE_SECURITY_UPDATE.md (cập nhật bảo mật)
 - AI_QUICK_REFERENCE.md (file này!)

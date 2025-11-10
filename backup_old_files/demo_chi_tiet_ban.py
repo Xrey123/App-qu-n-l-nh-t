@@ -3,9 +3,9 @@
 Demo Tab Chi tiết bán - Nộp tiền cho Accountant
 """
 
-print("="*70)
+print("=" * 70)
 print("DEMO TAB CHI TIET BAN - NOP TIEN CHO ACCOUNTANT")
-print("="*70)
+print("=" * 70)
 
 print("\n📋 TINH NANG MOI:")
 print("1. Nut 'Nop cho Accountant' thay vi 'Nop tien'")
@@ -36,6 +36,6 @@ print("   - 'cach nop tien cho accountant'")
 print("   - 'xem ca nao con no o dau'")
 print("   - 'tai sao phai nop tien cho accountant'")
 
-print("\n" + "="*70)
+print("\n" + "=" * 70)
 print("MOI APP: python main_gui.py")
-print("="*70)
+print("=" * 70)

@@ -7,4 +7,4 @@ from .hybrid import HybridAI as AIAssistant
 from .actions import AIActionSystem
 from .permissions import RolePermissions
 
-__all__ = ['AIAssistant', 'AIActionSystem', 'RolePermissions']
+__all__ = ["AIAssistant", "AIActionSystem", "RolePermissions"]

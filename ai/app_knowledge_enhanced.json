@@ -5,7 +5,25 @@
     "database": "fapp.db (SQLite) - 13 bảng",
     "main_file": "main_gui.py (7624 dòng)",
     "launcher": "start.py hoặc START_APP_SIMPLE.bat",
-    "sản phẩm": "Các loại nhớt: PLC KOMAT, PLC RACER, PLC CARTER, PCL GEAR OIL, PLC-AW HYDROIL"
+    "sản phẩm": "Các loại nhớt: PLC KOMAT, PLC RACER, PLC CARTER, PCL GEAR OIL, PLC-AW HYDROIL",
+    "tổng_số_tabs": 14,
+    "danh_sách_tabs": [
+      "1. 🏠 Trang chủ - Dashboard, thống kê tổng quan",
+      "2. Sản phẩm - Quản lý danh sách nhớt (Admin/Accountant only)",
+      "3. Lịch sử giá - Xem lịch sử thay đổi giá (Admin/Accountant only)",
+      "4. Ca bán hàng - 2 sub-tabs: Nhận hàng (kiểm kê) + Bán hàng",
+      "5. Chi tiết bán - XEM SẢN PHẨM ĐÃ BÁN, quản lý nợ cho Accountant",
+      "6. Hóa đơn - Quản lý hóa đơn đã xuất",
+      "7. Báo cáo - Báo cáo kho, biểu đồ sản lượng (Admin/Accountant only)",
+      "8. Quản lý User - Quản lý tài khoản user (Admin only)",
+      "9. Chênh lệch - Xử lý chênh lệch kho (Admin/Accountant only)",
+      "10. Xuất bổ - Xuất hàng bổ sung 3 loại giá (Accountant only)",
+      "11. Công đoàn - Quỹ công đoàn, 2 sub-tabs: Số dư User + Sản phẩm đã bán (Admin only)",
+      "12. Sổ quỹ - Lịch sử thu chi tiền (Admin/Accountant only)",
+      "13. Nhập đầu kỳ - Nhập tồn kho ban đầu (Admin only)",
+      "14. ⚙️ Cài đặt - Cấu hình Groq API, thông tin app"
+    ],
+    "lưu_ý_quan_trọng": "Tab 'Chi tiết bán' (tab số 5) là nơi XEM DANH SÁCH SẢN PHẨM ĐÃ BÁN, KHÔNG PHẢI tab 'Ca bán hàng'. Tab 'Công đoàn' có sub-tab 'Sản phẩm đã bán' để xem theo từng user."
   },
   "tabs": {
     "🏠 Trang chủ": {
@@ -136,9 +154,9 @@
       }
     },
     "Chi tiết bán": {
-      "chức năng": "Xem chi tiết từng ca bán hàng và quản lý nợ (thanh toán cho Accountant)",
+      "chức năng": "Xem chi tiết từng ca bán hàng, xem sản phẩm đã bán, và quản lý nợ (thanh toán cho Accountant)",
       "quyền": "Tất cả",
-      "mục đích": "Theo dõi các ca bán hàng nào còn nợ chưa thanh toán cho Accountant. Khi nhân viên bán hàng, họ phải nộp tiền cho Accountant để Accountant có tiền xuất bổ cho khách.",
+      "mục đích": "1. XEM DANH SÁCH SẢN PHẨM ĐÃ BÁN (theo từng ca, từng ngày)\n2. Theo dõi các ca bán hàng nào còn nợ chưa thanh toán cho Accountant\n3. Nhân viên nộp tiền cho Accountant để Accountant có tiền xuất bổ cho khách",
       "cột": [
         "ID",
         "User ID",
@@ -152,12 +170,18 @@
       "nút": [
         "Làm mới",
         "Tải dữ liệu (lọc theo ngày)",
-        "Chi tiết - Xem chi tiết hóa đơn",
+        "Chi tiết - XEM DANH SÁCH SẢN PHẨM ĐÃ BÁN trong ca đó",
         "💰 Nộp cho Accountant - Chuyển tiền từ nhân viên sang Accountant",
         "✅ Đã thanh toán - Hiển thị khi hết nợ"
       ],
-      "workflow": "1. Nhân viên bán hàng → Tạo hóa đơn trong tab 'Bán hàng'\n2. Hóa đơn xuất hiện ở tab 'Chi tiết bán'\n3. Nhân viên thấy 'Số dư (Nợ)' = Số tiền phải nộp cho Accountant\n4. Click 'Nộp cho Accountant' → Nhập số tiền → Xác nhận\n5. Tiền chuyển từ nhân viên sang Accountant\n6. Accountant có tiền để xuất bổ cho khách\n7. Khi nộp hết nợ → Hiện '✅ Đã thanh toán'",
+      "workflow": "1. Nhân viên bán hàng → Tạo hóa đơn trong tab 'Bán hàng'\n2. Hóa đơn xuất hiện ở tab 'Chi tiết bán'\n3. Nhân viên thấy 'Số dư (Nợ)' = Số tiền phải nộp cho Accountant\n4. Click 'Chi tiết' → XEM DANH SÁCH CÁC SẢN PHẨM ĐÃ BÁN trong ca đó\n5. Click 'Nộp cho Accountant' → Nhập số tiền → Xác nhận\n6. Tiền chuyển từ nhân viên sang Accountant\n7. Accountant có tiền để xuất bổ cho khách\n8. Khi nộp hết nợ → Hiện '✅ Đã thanh toán'",
+      "câu_hỏi_thường_gặp": {
+        "xem sản phẩm đã bán": "Vào tab 'Chi tiết bán' → Click nút 'Chi tiết' ở dòng ca cần xem → Hiện bảng chi tiết sản phẩm đã bán",
+        "sản phẩm nào đã bán": "Tab 'Chi tiết bán' hiển thị tất cả sản phẩm đã bán theo từng ca bán hàng. Click 'Chi tiết' để xem chi tiết.",
+        "danh sách hàng đã bán": "Nằm trong tab 'Chi tiết bán', không phải tab 'Ca bán hàng'"
+      },
       "lưu ý": [
+        "⭐ ĐÂY LÀ TAB XEM SẢN PHẨM ĐÃ BÁN, không phải tab 'Ca bán hàng'",
         "Số dư (Nợ) = Tổng tiền sản phẩm CHƯA xuất hóa đơn - Số tiền đã nộp",
         "Có thể nộp từng phần, không cần nộp hết 1 lần",
         "Tất cả user đều có thể nộp tiền (Staff, Accountant, Admin)",
@@ -167,6 +191,11 @@
       "keywords": [
         "chi tiết bán",
         "chi tiet ban",
+        "sản phẩm đã bán",
+        "san pham da ban",
+        "danh sách đã bán",
+        "hàng đã bán",
+        "xem đã bán gì",
         "nộp tiền",
         "nop tien",
         "thanh toán accountant",
@@ -224,25 +253,42 @@
       "giải thích": "Hỏi về sản phẩm, hướng dẫn, workflow, báo cáo"
     },
     "Quản lý User": {
-      "chức năng": "Quản lý tài khoản người dùng",
+      "chức năng": "Quản lý tài khoản người dùng và xem số dư của từng user",
       "quyền": "Admin",
+      "mô_tả": "Tab này hiển thị danh sách TẤT CẢ user trong hệ thống, bao gồm username, role, và số dư tiền của từng người. Chỉ Admin mới được xem.",
       "cột": [
         "ID",
-        "Username",
-        "Role",
-        "Số dư"
+        "Username - Tên đăng nhập",
+        "Role - Vai trò (admin/accountant/staff)",
+        "Số dư - Số tiền hiện có của user"
       ],
       "nút": [
-        "Thêm user",
-        "Xóa user",
-        "Chuyển tiền",
-        "Lịch sử quỹ"
+        "Thêm user - Tạo tài khoản mới",
+        "Xóa user - Xóa tài khoản",
+        "Chuyển tiền - Chuyển tiền giữa các user",
+        "Lịch sử quỹ - Xem lịch sử giao dịch tiền"
       ],
+      "câu_hỏi_thường_gặp": {
+        "số dư user": "Vào tab 'Quản lý User', cột 'Số dư' hiển thị số tiền của từng user.",
+        "số dư các user": "Tab 'Quản lý User' có cột 'Số dư' cho tất cả user.",
+        "ai có bao nhiêu tiền": "Xem cột 'Số dư' trong tab 'Quản lý User'",
+        "user nào giàu nhất": "Xem cột 'Số dư' trong tab 'Quản lý User', sắp xếp theo số dư giảm dần"
+      },
       "vai_trò": {
         "admin": "Full quyền: thêm/xóa user, sản phẩm, xem tất cả báo cáo",
         "accountant": "Xem báo cáo, sản phẩm, hóa đơn (không thêm/xóa user)",
         "staff": "Chỉ bán hàng, nhận hàng, xem hóa đơn của mình"
-      }
+      },
+      "keywords": [
+        "quản lý user",
+        "quan ly user",
+        "user management",
+        "số dư user",
+        "so du user",
+        "danh sách user",
+        "tiền user",
+        "balance"
+      ]
     },
     "Chênh lệch": {
       "chức năng": "Xử lý chênh lệch kho (kiểm kê phát hiện thừa/thiếu)",
@@ -303,12 +349,52 @@
       ]
     },
     "Công đoàn": {
-      "chức năng": "Quản lý quỹ công đoàn từ nhớt",
+      "chức năng": "Quản lý quỹ công đoàn từ chênh lệch xuất bỏ nhớt",
       "quyền": "Admin",
-      "nút": [
+      "mô_tả": "Tab này có 2 sub-tabs để quản lý quỹ công đoàn và xem sản phẩm đã bán theo từng user",
+      "sub_tabs": {
+        "Số dư User": {
+          "chức năng": "Xem số dư công đoàn của từng user",
+          "cột": [
+            "Username",
+            "Số dư công đoàn",
+            "Ghi chú"
+          ],
+          "nút": [
+            "💰 Chuyển tiền công đoàn - Chuyển tiền từ quỹ công đoàn sang user hoặc ngược lại",
+            "Làm mới"
+          ]
+        },
+        "Sản phẩm đã bán": {
+          "chức năng": "Xem chi tiết sản phẩm đã bán theo từng user để tính thưởng",
+          "cột": [
+            "User",
+            "Sản phẩm",
+            "Số lượng",
+            "Ngày",
+            "Loại giá"
+          ],
+          "nút": [
+            "Tải dữ liệu",
+            "Xuất Excel"
+          ]
+        }
+      },
+      "nút_chính": [
+        "💰 Chuyển tiền công đoàn",
         "Nộp quỹ",
         "Rút quỹ",
         "Lịch sử"
+      ],
+      "chức_năng_nút_chuyển_tiền": "Nút '💰 Chuyển tiền công đoàn' cho phép Admin chuyển tiền từ quỹ công đoàn sang số dư của user (để thưởng), hoặc từ user vào quỹ công đoàn. Tiền này tính từ chênh lệch xuất bỏ (khi xuất hàng có lãi).",
+      "keywords": [
+        "công đoàn",
+        "cong doan",
+        "chuyển tiền công đoàn",
+        "chuyen tien cong doan",
+        "quỹ công đoàn",
+        "quy cong doan",
+        "thưởng công đoàn"
       ]
     },
     "Sổ quỹ": {

@@ -10,11 +10,13 @@
 ShopFlow sử dụng **Hybrid AI System** với 2 chế độ:
 
 ### **🚀 ONLINE MODE - Groq API (Llama 3.3 70B)**
+
 - **Cực thông minh:** Hiểu ngữ cảnh phức tạp
 - **Cực nhanh:** Trả lời trong 1-2 giây
 - **Yêu cầu:** API key (free tại groq.com) + internet
 
 ### **💻 OFFLINE MODE - Phi3:mini + RAG**
+
 - **Chạy local:** Không cần internet
 - **Dùng RAG:** Retrieval Augmented Generation
 - **Tra cứu:** Database + app_knowledge.json
@@ -27,13 +29,15 @@ ShopFlow sử dụng **Hybrid AI System** với 2 chế độ:
 AI biết **TẤT CẢ** về ShopFlow từ `ai/app_knowledge_enhanced.json`:
 
 ### **Thông tin App**
+
 ✅ Tên: ShopFlow - Quản lý bán hàng thông minh  
 ✅ Phiên bản: 2.5.0 (SF)  
 ✅ Ngày: 08/11/2024  
 ✅ Công nghệ: PyQt5, SQLite (fapp.db)  
-✅ Khởi động: `python start.py`  
+✅ Khởi động: `python start.py`
 
 ### **13 Tabs Chính**
+
 1. 🏠 **Trang chủ** - Dashboard, thống kê
 2. 📦 **Sản phẩm** - Quản lý nhớt (Admin/Accountant)
 3. 📊 **Lịch sử giá** - Theo dõi thay đổi giá
@@ -49,6 +53,7 @@ AI biết **TẤT CẢ** về ShopFlow từ `ai/app_knowledge_enhanced.json`:
 13. 💵 **Sổ quỹ** - Giao dịch tiền
 
 ### **Quy trình Bán hàng**
+
 ```
 1. Nhận hàng (đầu ca) → Kiểm kê tồn kho, ghi chênh lệch
 2. Bán hàng → Nhập đơn, tính giá tự động (lẻ/buôn/VIP)
@@ -56,6 +61,7 @@ AI biết **TẤT CẢ** về ShopFlow từ `ai/app_knowledge_enhanced.json`:
 ```
 
 ### **Cách tính giá**
+
 - **Giá lẻ:** SL < ngưỡng buôn (vd: < 5 thùng)
 - **Giá buôn:** SL ≥ ngưỡng buôn (vd: ≥ 5 thùng)
 - **Giá VIP:** Khách hàng VIP (lưu trong DB)
@@ -68,13 +74,14 @@ AI biết **TẤT CẢ** về ShopFlow từ `ai/app_knowledge_enhanced.json`:
 
 AI kiểm tra quyền user trước khi trả lời:
 
-| Role | Tabs | Actions |
-|------|------|---------|
-| **Admin** 👑 | Toàn bộ 13 tabs | Tất cả |
-| **Accountant** 👔 | 11 tabs (trừ User, AI Agent) | Xem báo cáo, xuất bỏ, công đoàn, sổ quỹ |
-| **Staff** 👤 | 5 tabs (Trang chủ, Ca bán hàng, Chi tiết bán, Hóa đơn, AI Agent) | CHỈ bán hàng |
+| Role              | Tabs                                                             | Actions                                 |
+| ----------------- | ---------------------------------------------------------------- | --------------------------------------- |
+| **Admin** 👑      | Toàn bộ 13 tabs                                                  | Tất cả                                  |
+| **Accountant** 👔 | 11 tabs (trừ User, AI Agent)                                     | Xem báo cáo, xuất bỏ, công đoàn, sổ quỹ |
+| **Staff** 👤      | 5 tabs (Trang chủ, Ca bán hàng, Chi tiết bán, Hóa đơn, AI Agent) | CHỈ bán hàng                            |
 
 **Ví dụ:**
+
 ```
 Staff hỏi: "Tab sản phẩm làm gì?"
 AI: "🚫 Xin lỗi, tab Sản phẩm chỉ dành cho Admin hoặc Accountant..."
@@ -85,17 +92,20 @@ AI: "🚫 Xin lỗi, tab Sản phẩm chỉ dành cho Admin hoặc Accountant...
 AI chặn **50+ từ khóa nhạy cảm:**
 
 #### ✅ **CHO PHÉP XEM:**
+
 - Dữ liệu từ bảng: SanPham, ChiTietBan, HoaDon, GiaoDichQuy, ChenhLechXuatBo
 - Thông tin Users: username, role (KHÔNG password)
 - Các câu hỏi: "bao nhiêu", "còn", "danh sách", "tổng", "giá"
 
 #### ❌ **CHẶN HOÀN TOÀN:**
+
 - **Cấu trúc DB:** schema, cột, primary key, foreign key, table structure
 - **Bảo mật:** password, api key, token, hash, secret
 - **SQL Commands:** UPDATE, DELETE, DROP, INSERT, ALTER
 - **Code:** .py files, source code, file paths, system architecture
 
 **Ví dụ:**
+
 ```
 User: "Bảng SanPham có những cột nào?"
 AI: "🔒 Xin lỗi, tôi không thể cung cấp thông tin về kỹ thuật hệ thống..."
@@ -111,6 +121,7 @@ AI: "🔒 Xin lỗi, tôi không thể cung cấp thông tin về bảo mật...
 AI **tự động chuyển tab** khi trả lời về tab đó!
 
 **13 tabs được map:**
+
 ```python
 "trang chủ" → Tab 0
 "sản phẩm" → Tab 1 (Admin/Accountant)
@@ -125,6 +136,7 @@ AI **tự động chuyển tab** khi trả lời về tab đó!
 ```
 
 **Ví dụ:**
+
 ```
 User: "Hướng dẫn nhận hàng"
 AI: "📌 Tab Ca bán hàng → Sub-tab Nhận hàng..."
@@ -156,15 +168,15 @@ AI có thể **XEM** dữ liệu từ database (an toàn, chỉ đọc):
 
 ### **Các bảng được phép truy vấn:**
 
-| Bảng | AI có thể xem |
-|------|---------------|
-| **SanPham** | ✅ Tên, giá lẻ, giá buôn, giá VIP, tồn kho |
-| **ChiTietBan** | ✅ Sản phẩm đã bán, số lượng, giá, ngày |
-| **HoaDon** | ✅ ID hóa đơn, khách hàng, tổng tiền, ngày |
-| **GiaoDichQuy** | ✅ User chuyển/nhận, số tiền, ghi chú |
-| **ChenhLechXuatBo** | ✅ Chênh lệch công đoạn, user, sản phẩm |
-| **DauKyXuatBo** | ✅ Sản phẩm đầu kỳ chưa xuất hóa đơn |
-| **Users** | ⚠️ CHỈ username, role (KHÔNG password) |
+| Bảng                | AI có thể xem                              |
+| ------------------- | ------------------------------------------ |
+| **SanPham**         | ✅ Tên, giá lẻ, giá buôn, giá VIP, tồn kho |
+| **ChiTietBan**      | ✅ Sản phẩm đã bán, số lượng, giá, ngày    |
+| **HoaDon**          | ✅ ID hóa đơn, khách hàng, tổng tiền, ngày |
+| **GiaoDichQuy**     | ✅ User chuyển/nhận, số tiền, ghi chú      |
+| **ChenhLechXuatBo** | ✅ Chênh lệch công đoạn, user, sản phẩm    |
+| **DauKyXuatBo**     | ✅ Sản phẩm đầu kỳ chưa xuất hóa đơn       |
+| **Users**           | ⚠️ CHỈ username, role (KHÔNG password)     |
 
 ### **Ví dụ Query:**
 
@@ -194,9 +206,10 @@ AI biết **chi tiết từng chức năng** từ `ai/app_knowledge_enhanced.jso
 ### **Ví dụ kiến thức:**
 
 **Nhận hàng:**
+
 ```
 ✅ Mục đích: Kiểm kê tồn kho đầu ca
-✅ Cách dùng: 
+✅ Cách dùng:
    1. Ấn "Tải danh sách sản phẩm"
    2. Nhập SL đếm được
    3. Ghi lý do nếu có chênh lệch
@@ -205,6 +218,7 @@ AI biết **chi tiết từng chức năng** từ `ai/app_knowledge_enhanced.jso
 ```
 
 **Bán hàng:**
+
 ```
 ✅ Tính giá tự động:
    - Nhập SL < 5 → Giá lẻ
@@ -221,18 +235,21 @@ AI biết **chi tiết từng chức năng** từ `ai/app_knowledge_enhanced.jso
 AI phản ứng theo ngữ cảnh:
 
 ### **Vui vẻ:**
+
 ```
 User: "AI giỏi quá!"
 AI: "😊 Cảm ơn bạn! Mình luôn cố gắng hỗ trợ tốt nhất!"
 ```
 
 ### **Xin lỗi:**
+
 ```
 User: "Sao lại sai?"
 AI: "😔 Xin lỗi, để mình kiểm tra lại..."
 ```
 
 ### **Hài hước:**
+
 ```
 User: "AI có thể yêu không?"
 AI: "💕 Mình có thể yêu... yêu việc giúp bạn quản lý cửa hàng! 😄"
@@ -246,14 +263,15 @@ AI có thể **thực thi hành động** trong app:
 
 ### **Các action được hỗ trợ:**
 
-| Action | Mô tả | Ví dụ |
-|--------|-------|-------|
-| `switch_tab` | Chuyển tab | "Mở tab Sản phẩm" |
-| `search_product` | Tìm sản phẩm | "Tìm PLC KOMAT" |
-| `show_report` | Hiển thị báo cáo | "Báo cáo doanh thu" |
-| `calculate_price` | Tính giá | "Giá 10 thùng PLC KOMAT" |
+| Action            | Mô tả            | Ví dụ                    |
+| ----------------- | ---------------- | ------------------------ |
+| `switch_tab`      | Chuyển tab       | "Mở tab Sản phẩm"        |
+| `search_product`  | Tìm sản phẩm     | "Tìm PLC KOMAT"          |
+| `show_report`     | Hiển thị báo cáo | "Báo cáo doanh thu"      |
+| `calculate_price` | Tính giá         | "Giá 10 thùng PLC KOMAT" |
 
 **Ví dụ:**
+
 ```
 User: "Mở tab Sản phẩm"
 AI: → Action: switch_tab(1)
@@ -280,6 +298,7 @@ Right A: Giá buôn 170.000 (vì ≥5 thùng)
 ```
 
 ### **Tools:**
+
 - `auto_trainer.py` - Tự động train từ wrong_answers.txt
 - `fix_all_wrong_answers.py` - Sửa tất cả lỗi
 - `delete_wrong_answers.py` - Xóa lỗi đã fix
@@ -302,6 +321,7 @@ AI phân tích câu hỏi theo **6 bước:**
 ```
 
 **Ví dụ flow:**
+
 ```
 User: "Còn bao nhiêu PLC KOMAT?" (Staff)
 → Step 1: Normalize ✅
@@ -374,6 +394,7 @@ User: "Còn bao nhiêu PLC KOMAT?" (Staff)
 ### **Trong App:**
 
 **Tab Cài đặt → AI Settings:**
+
 - ✅ Nhập Groq API Key
 - ✅ Test kết nối
 - ✅ Switch Online/Offline
@@ -384,12 +405,14 @@ User: "Còn bao nhiêu PLC KOMAT?" (Staff)
 ## 📊 13. PERFORMANCE
 
 ### **Online Mode (Groq API):**
+
 - **Tốc độ:** 1-2 giây
 - **Độ chính xác:** 95%+
 - **Context:** 8K tokens
 - **Cost:** FREE (60 requests/minute)
 
 ### **Offline Mode (Phi3:mini):**
+
 - **Tốc độ:** 5-10 giây
 - **Độ chính xác:** 70-80%
 - **Context:** 2K tokens
@@ -399,16 +422,16 @@ User: "Còn bao nhiêu PLC KOMAT?" (Staff)
 
 ## 🔄 14. UPDATE HISTORY
 
-| Ngày | Cập nhật |
-|------|----------|
+| Ngày           | Cập nhật                                               |
+| -------------- | ------------------------------------------------------ |
 | **08/11/2024** | ✅ Điều chỉnh IT Security Filter - Cho phép query data |
-| **07/11/2024** | ✅ Thêm splash screen animation |
-| **06/11/2024** | ✅ Rename app → ShopFlow 2.5.0 |
-| **05/11/2024** | ✅ Split Settings tab → AI Settings + Information |
-| **04/11/2024** | ✅ Auto-stretch product name columns |
-| **03/11/2024** | ✅ Permission system + IT Security Filter |
-| **02/11/2024** | ✅ Auto tab switching |
-| **01/11/2024** | ✅ Hybrid AI (Groq + Phi3) |
+| **07/11/2024** | ✅ Thêm splash screen animation                        |
+| **06/11/2024** | ✅ Rename app → ShopFlow 2.5.0                         |
+| **05/11/2024** | ✅ Split Settings tab → AI Settings + Information      |
+| **04/11/2024** | ✅ Auto-stretch product name columns                   |
+| **03/11/2024** | ✅ Permission system + IT Security Filter              |
+| **02/11/2024** | ✅ Auto tab switching                                  |
+| **01/11/2024** | ✅ Hybrid AI (Groq + Phi3)                             |
 
 ---
 
@@ -418,6 +441,7 @@ User: "Còn bao nhiêu PLC KOMAT?" (Staff)
 
 **Q: AI không trả lời được câu hỏi?**  
 A: Kiểm tra:
+
 1. Groq API key (Tab Cài đặt → AI Settings)
 2. Internet connection (nếu dùng Online mode)
 3. Quyền user (Staff không xem được báo cáo)
@@ -433,6 +457,7 @@ A: Dùng Groq API (Online mode) thay vì Phi3 (Offline)
 ## 🎓 KẾT LUẬN
 
 AI của ShopFlow có thể:
+
 - ✅ Trả lời **TẤT CẢ** câu hỏi về sử dụng app
 - ✅ **Truy vấn database** (READ-ONLY) an toàn
 - ✅ **Tự động chuyển tab** khi trả lời
@@ -442,6 +467,7 @@ AI của ShopFlow có thể:
 - ✅ **Học từ lỗi** tự động
 
 AI **KHÔNG THỂ:**
+
 - ❌ Sửa/xóa dữ liệu database
 - ❌ Tiết lộ password, API key
 - ❌ Cung cấp source code, cấu trúc DB

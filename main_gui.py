@@ -39,6 +39,7 @@ from PyQt5.QtGui import QPainter, QDoubleValidator
 
 # Logging
 from utils.logging_config import get_logger
+
 logger = get_logger(__name__)
 
 # Helpers
@@ -57,9 +58,11 @@ from utils.ui_helpers import (
     show_confirmation,
     setup_quantity_spinbox,
 )
+
 # 🤖 AI System (Gemma 2B via Ollama) - With Permissions
 try:
     from ai_system import AIAssistant
+
     AI_AGENT_AVAILABLE = True
 except ImportError as e:
     logger.warning(f"AI system not available: {e}")
@@ -183,43 +186,50 @@ class CompleterDelegate(QStyledItemDelegate):
 
 class SplashScreen(QWidget):
     """Màn hình loading với logo và animation"""
+
     def __init__(self):
         super().__init__()
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
-        
+
         # Set size
         self.setFixedSize(500, 400)
-        
+
         # Center on screen
         from PyQt5.QtWidgets import QDesktopWidget
+
         screen = QDesktopWidget().screenGeometry()
-        self.move((screen.width() - self.width()) // 2, 
-                  (screen.height() - self.height()) // 2)
-        
+        self.move(
+            (screen.width() - self.width()) // 2, (screen.height() - self.height()) // 2
+        )
+
         # Main layout
         layout = QVBoxLayout()
         layout.setContentsMargins(30, 30, 30, 30)
-        
+
         # Background frame
         frame = QWidget()
-        frame.setStyleSheet("""
+        frame.setStyleSheet(
+            """
             QWidget {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
                     stop:0 #667eea, stop:1 #764ba2);
                 border-radius: 20px;
             }
-        """)
+        """
+        )
         frame_layout = QVBoxLayout()
         frame_layout.setSpacing(20)
-        
+
         # Logo
         logo_label = QLabel()
         logo_label.setAlignment(Qt.AlignCenter)
         try:
             logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
             if os.path.exists(logo_path):
-                pixmap = QPixmap(logo_path).scaled(120, 120, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                pixmap = QPixmap(logo_path).scaled(
+                    120, 120, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                )
                 logo_label.setPixmap(pixmap)
             else:
                 # Fallback to text logo
@@ -229,37 +239,43 @@ class SplashScreen(QWidget):
             print(f"Logo loading error: {e}")
             logo_label.setText("🛒")
             logo_label.setStyleSheet("font-size: 80px;")
-        
+
         frame_layout.addWidget(logo_label)
-        
+
         # App name
         app_name = QLabel("ShopFlow")
         app_name.setAlignment(Qt.AlignCenter)
-        app_name.setStyleSheet("""
+        app_name.setStyleSheet(
+            """
             font-size: 36px;
             font-weight: bold;
             color: white;
             margin: 10px;
-        """)
+        """
+        )
         frame_layout.addWidget(app_name)
-        
+
         # Subtitle
         subtitle = QLabel("Quản lý bán hàng thông minh")
         subtitle.setAlignment(Qt.AlignCenter)
-        subtitle.setStyleSheet("""
+        subtitle.setStyleSheet(
+            """
             font-size: 14px;
             color: rgba(255, 255, 255, 0.9);
             margin-bottom: 20px;
-        """)
+        """
+        )
         frame_layout.addWidget(subtitle)
-        
+
         # Loading animation (progress bar)
         from PyQt5.QtWidgets import QProgressBar
+
         self.progress = QProgressBar()
         self.progress.setRange(0, 0)  # Indeterminate mode
         self.progress.setTextVisible(False)
         self.progress.setFixedHeight(4)
-        self.progress.setStyleSheet("""
+        self.progress.setStyleSheet(
+            """
             QProgressBar {
                 background: rgba(255, 255, 255, 0.2);
                 border: none;
@@ -269,24 +285,27 @@ class SplashScreen(QWidget):
                 background: white;
                 border-radius: 2px;
             }
-        """)
+        """
+        )
         frame_layout.addWidget(self.progress)
-        
+
         # Loading text
         self.status_label = QLabel("Đang khởi tạo...")
         self.status_label.setAlignment(Qt.AlignCenter)
-        self.status_label.setStyleSheet("""
+        self.status_label.setStyleSheet(
+            """
             font-size: 12px;
             color: rgba(255, 255, 255, 0.8);
             margin-top: 10px;
-        """)
+        """
+        )
         frame_layout.addWidget(self.status_label)
-        
+
         frame_layout.addStretch()
         frame.setLayout(frame_layout)
         layout.addWidget(frame)
         self.setLayout(layout)
-    
+
     def update_status(self, text):
         """Update loading status text"""
         self.status_label.setText(text)
@@ -577,12 +596,12 @@ class MainWindow(QWidget):
     def build_tab_map(self):
         """Build keyword -> tab index mapping dynamically based on current tabs"""
         self.tab_map = {}
-        
+
         # Map each tab by its text name (lowercased)
         for i in range(self.tabs.count()):
             tab_name = self.tabs.tabText(i).lower().replace("🤖 ", "")
             self.tab_map[tab_name] = i
-            
+
             # Add common keyword variations
             if "sản phẩm" in tab_name or "san pham" in tab_name:
                 self.tab_map["sp"] = i
@@ -625,33 +644,40 @@ class MainWindow(QWidget):
     def navigate_to_tab(self, keywords):
         """Navigate to tab based on keywords. Returns (success, message)"""
         msg_lower = keywords.lower()
-        
+
         # Check for nested tabs first (Ca bán hàng)
-        if any(kw in msg_lower for kw in ['nhận hàng', 'nhan hang', 'receive']):
-            ca_idx = self.tab_map.get('ca bán hàng')
+        if any(kw in msg_lower for kw in ["nhận hàng", "nhan hang", "receive", "kiểm kê", "kiem ke"]):
+            ca_idx = self.tab_map.get("ca bán hàng")
             if ca_idx is not None:
                 self.tabs.setCurrentIndex(ca_idx)
                 # Switch to "Nhận hàng" sub-tab (index 0)
-                if hasattr(self, 'tab_ca_banhang_tabs'):
+                if hasattr(self, "tab_ca_banhang_tabs"):
                     self.tab_ca_banhang_tabs.setCurrentIndex(0)
                 return True, "✅ Đã chuyển đến tab **Nhận hàng**"
-        
-        if any(kw in msg_lower for kw in ['bán hàng', 'ban hang', 'sell']):
-            ca_idx = self.tab_map.get('ca bán hàng')
+
+        if any(kw in msg_lower for kw in ["bán hàng", "ban hang", "sell", "thanh toán", "thanh toan"]):
+            ca_idx = self.tab_map.get("ca bán hàng")
             if ca_idx is not None:
                 self.tabs.setCurrentIndex(ca_idx)
                 # Switch to "Bán hàng" sub-tab (index 1)
-                if hasattr(self, 'tab_ca_banhang_tabs'):
+                if hasattr(self, "tab_ca_banhang_tabs"):
                     self.tab_ca_banhang_tabs.setCurrentIndex(1)
                 return True, "✅ Đã chuyển đến tab **Bán hàng**"
-        
+
+        # Special handling for "Chi tiết bán" (to avoid confusion with "bán hàng")
+        if any(kw in msg_lower for kw in ["chi tiết bán", "chi tiet ban", "sản phẩm đã bán", "san pham da ban", "hàng đã bán", "hang da ban", "đã bán gì", "da ban gi"]):
+            chitiet_idx = self.tab_map.get("chi tiết bán")
+            if chitiet_idx is not None:
+                self.tabs.setCurrentIndex(chitiet_idx)
+                return True, "✅ Đã chuyển đến tab **Chi tiết bán**"
+
         # Check main tabs
         for keyword, idx in self.tab_map.items():
             if keyword in msg_lower:
                 self.tabs.setCurrentIndex(idx)
                 tab_name = self.tabs.tabText(idx)
                 return True, f"✅ Đã chuyển đến tab **{tab_name}**"
-        
+
         return False, "❌ Không tìm thấy tab phù hợp"
 
     def create_ai_chat_panel(self, main_layout):
@@ -659,35 +685,40 @@ class MainWindow(QWidget):
         # AI Container
         self.ai_container = QWidget()
         self.ai_container.setFixedWidth(400)
-        self.ai_container.setStyleSheet("""
+        self.ai_container.setStyleSheet(
+            """
             QWidget {
                 background: white;
                 border-left: 2px solid #bdc3c7;
             }
-        """)
-        
+        """
+        )
+
         ai_layout = QVBoxLayout()
         ai_layout.setContentsMargins(15, 15, 15, 15)
         ai_layout.setSpacing(10)
         self.ai_container.setLayout(ai_layout)
-        
+
         # Header với nút đóng
         header_layout = QHBoxLayout()
         header_label = QLabel("🤖 AI CHAT")
-        header_label.setStyleSheet("""
+        header_label.setStyleSheet(
+            """
             QLabel {
                 font-size: 14pt;
                 font-weight: bold;
                 color: #2c3e50;
             }
-        """)
+        """
+        )
         header_layout.addWidget(header_label)
         header_layout.addStretch()
-        
+
         # Nút đóng
         self.btn_toggle_ai = QPushButton("✖")
         self.btn_toggle_ai.setFixedSize(30, 30)
-        self.btn_toggle_ai.setStyleSheet("""
+        self.btn_toggle_ai.setStyleSheet(
+            """
             QPushButton {
                 background: #e74c3c;
                 color: white;
@@ -698,34 +729,38 @@ class MainWindow(QWidget):
             QPushButton:hover {
                 background: #c0392b;
             }
-        """)
+        """
+        )
         self.btn_toggle_ai.clicked.connect(self.toggle_ai_panel)
         self.btn_toggle_ai.setToolTip("Ẩn panel AI")
         header_layout.addWidget(self.btn_toggle_ai)
-        
+
         ai_layout.addLayout(header_layout)
-        
+
         # Info
-        info_label = QLabel("""
+        info_label = QLabel(
+            """
         <div style='background: #ecf0f1; padding: 8px; border-radius: 3px; font-size: 9pt;'>
             <b>💡 Hỏi AI về:</b><br>
             • Cấu trúc app, tabs<br>
             • Quy trình bán hàng<br>
             • Logic nghiệp vụ<br>
         </div>
-        """)
+        """
+        )
         info_label.setWordWrap(True)
         ai_layout.addWidget(info_label)
-        
+
         # Chat history
         self.ai_chat_display = QTextEdit()
         self.ai_chat_display.setReadOnly(True)
-        
+
         # Set smaller font for better readability
         chat_font = QFont("Segoe UI", 9)  # Reduced from 9 to 8pt
         self.ai_chat_display.setFont(chat_font)
-        
-        self.ai_chat_display.setStyleSheet("""
+
+        self.ai_chat_display.setStyleSheet(
+            """
             QTextEdit {
                 background: #f8f9fa;
                 border: 1px solid #dee2e6;
@@ -733,29 +768,33 @@ class MainWindow(QWidget):
                 padding: 10px;
                 line-height: 1.5;
             }
-        """)
+        """
+        )
         ai_layout.addWidget(self.ai_chat_display)
-        
+
         # Input
         input_layout = QVBoxLayout()
         self.ai_input_right = QLineEdit()
         self.ai_input_right.setPlaceholderText("Nhập câu hỏi...")
-        self.ai_input_right.setStyleSheet("""
+        self.ai_input_right.setStyleSheet(
+            """
             QLineEdit {
                 padding: 8px;
                 border: 2px solid #3498db;
                 border-radius: 5px;
                 font-size: 10pt;
             }
-        """)
+        """
+        )
         self.ai_input_right.returnPressed.connect(self.send_ai_message_right)
         input_layout.addWidget(self.ai_input_right)
-        
+
         # Buttons
         btn_layout = QHBoxLayout()
-        
+
         send_btn = QPushButton("📤 Gửi")
-        send_btn.setStyleSheet("""
+        send_btn.setStyleSheet(
+            """
             QPushButton {
                 background: #3498db;
                 color: white;
@@ -767,13 +806,15 @@ class MainWindow(QWidget):
             QPushButton:hover {
                 background: #2980b9;
             }
-        """)
+        """
+        )
         send_btn.clicked.connect(self.send_ai_message_right)
         btn_layout.addWidget(send_btn)
-        
+
         clear_btn = QPushButton("🗑️")
         clear_btn.setFixedWidth(40)
-        clear_btn.setStyleSheet("""
+        clear_btn.setStyleSheet(
+            """
             QPushButton {
                 background: #95a5a6;
                 color: white;
@@ -785,26 +826,27 @@ class MainWindow(QWidget):
             QPushButton:hover {
                 background: #7f8c8d;
             }
-        """)
+        """
+        )
         clear_btn.clicked.connect(self.clear_ai_history_right)
         clear_btn.setToolTip("Xóa lịch sử")
         btn_layout.addWidget(clear_btn)
-        
+
         input_layout.addLayout(btn_layout)
         ai_layout.addLayout(input_layout)
-        
+
         # Initialize AI Assistant with current user role
         if AI_AGENT_AVAILABLE:
             try:
                 self.ai_agent_right = AIAssistant(
                     main_window=self,
-                    current_user_role=self.role  # Pass user role for permissions
+                    current_user_role=self.role,  # Pass user role for permissions
                 )
-                
+
                 # Check AI mode and display appropriate message
                 mode = self.ai_agent_right.get_ai_mode()
                 model = self.ai_agent_right.get_model_name()
-                
+
                 if mode == "online":
                     # Groq API connected
                     self.ai_chat_display.append(
@@ -824,27 +866,28 @@ class MainWindow(QWidget):
                             "Chạy: ollama serve<br>"
                             "Hoặc cấu hình Groq API trong Settings để dùng ONLINE mode!<br>"
                         )
-                
+
                 # Update Settings tab status
                 self._update_ai_status_display()
-                
+
             except Exception as e:
                 self.ai_chat_display.append(f"❌ <b>Lỗi khởi tạo AI:</b> {e}<br>")
                 print(f"❌ Chi tiết lỗi AI: {e}")
-        
+
         # Add to main layout (HIỂN THỊ BÊN PHẢI MẶC ĐỊNH)
         main_layout.addWidget(self.ai_container)
         self.ai_container.show()  # ✅ Hiển thị mặc định
-        
+
         # Nút toggle để đóng/mở AI panel
         self.create_ai_toggle_button()
-    
+
     def create_ai_toggle_button(self):
         """Tạo nút floating để mở/đóng AI panel"""
         self.btn_open_ai = QPushButton("🤖")
         self.btn_open_ai.setParent(self)
         self.btn_open_ai.setFixedSize(50, 50)
-        self.btn_open_ai.setStyleSheet("""
+        self.btn_open_ai.setStyleSheet(
+            """
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
                                            stop:0 #3498db, stop:1 #2ecc71);
@@ -859,27 +902,28 @@ class MainWindow(QWidget):
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
                                            stop:0 #2980b9, stop:1 #27ae60);
             }
-        """)
+        """
+        )
         self.btn_open_ai.clicked.connect(self.toggle_ai_panel)
         self.btn_open_ai.setToolTip("Mở/Đóng chat AI")
         self.btn_open_ai.hide()  # ✅ Ẩn nút vì AI đã hiển thị mặc định
         self.btn_open_ai.raise_()  # Đưa lên trên cùng
-        
+
         # Position ở góc phải bottom
         self.position_ai_button()
-    
+
     def position_ai_button(self):
         """Đặt vị trí nút AI ở góc phải bottom"""
         x = self.width() - 70
         y = self.height() - 70
         self.btn_open_ai.move(x, y)
-    
+
     def resizeEvent(self, event):
         """Khi resize window, di chuyển nút AI"""
         super().resizeEvent(event)
-        if hasattr(self, 'btn_open_ai'):
+        if hasattr(self, "btn_open_ai"):
             self.position_ai_button()
-    
+
     def toggle_ai_panel(self):
         """Ẩn/hiện AI panel"""
         if self.ai_container.isVisible():
@@ -888,55 +932,65 @@ class MainWindow(QWidget):
         else:
             self.ai_container.show()
             self.btn_open_ai.hide()
-    
+
     def send_ai_message_right(self):
         """Gửi tin nhắn từ panel bên phải"""
         message = self.ai_input_right.text().strip()
         if not message:
             return
-        
+
         # Add user message
         self.ai_chat_display.append(f"<br><b>😊 Bạn:</b> {message}<br>")
         self.ai_input_right.clear()
-        
+
         # Get AI response
         try:
             self.ai_chat_display.append("<b>🤖 AI:</b> <i>Đang suy nghĩ...</i>")
             QApplication.processEvents()
-            
+
             # Gọi AI (role đã được set trong __init__)
             response = self.ai_agent_right.ask(message)
-            
+
             # Remove thinking message
             cursor = self.ai_chat_display.textCursor()
             cursor.movePosition(cursor.End)
             cursor.select(cursor.BlockUnderCursor)
             cursor.removeSelectedText()
-            
+
             # Format response for better readability
             # Convert markdown-style formatting to HTML
-            formatted_response = response.replace("\n\n", "<br><br>")  # Paragraph breaks
-            formatted_response = formatted_response.replace("\n- ", "<br>• ")  # Bullet points
-            formatted_response = formatted_response.replace("\n* ", "<br>• ")  # Bullet points
-            formatted_response = formatted_response.replace("**", "<b>", 1).replace("**", "</b>", 1)  # Bold
-            
+            formatted_response = response.replace(
+                "\n\n", "<br><br>"
+            )  # Paragraph breaks
+            formatted_response = formatted_response.replace(
+                "\n- ", "<br>• "
+            )  # Bullet points
+            formatted_response = formatted_response.replace(
+                "\n* ", "<br>• "
+            )  # Bullet points
+            formatted_response = formatted_response.replace("**", "<b>", 1).replace(
+                "**", "</b>", 1
+            )  # Bold
+
             self.ai_chat_display.append(f"<b>🤖 AI:</b><br>{formatted_response}<br>")
-            
+
         except Exception as e:
             self.ai_chat_display.append(f"<b>❌ Lỗi:</b> {e}<br>")
-        
+
         # Scroll to bottom
         self.ai_chat_display.verticalScrollBar().setValue(
             self.ai_chat_display.verticalScrollBar().maximum()
         )
-    
+
     def clear_ai_history_right(self):
         """Xóa lịch sử chat bên phải"""
         try:
             # Clear conversation history in AI
-            if hasattr(self, 'ai_agent_right') and hasattr(self.ai_agent_right, 'conversation_history'):
+            if hasattr(self, "ai_agent_right") and hasattr(
+                self.ai_agent_right, "conversation_history"
+            ):
                 self.ai_agent_right.conversation_history = []
-            
+
             # Clear display
             self.ai_chat_display.clear()
             self.ai_chat_display.append("🗑️ <b>Đã xóa lịch sử & memory</b><br>")
@@ -1283,7 +1337,7 @@ class MainWindow(QWidget):
         # Tự động điều chỉnh độ rộng cột
         table_widget.horizontalHeader().setStretchLastSection(True)
         table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
-        
+
         # Đảm bảo bảng có thể cuộn ngang nếu cần
         table_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         table_widget.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
@@ -1294,12 +1348,12 @@ class MainWindow(QWidget):
             table_widget.verticalHeader().setDefaultSectionSize(26)  # giảm từ 30
         except Exception:
             pass
-        
+
         # Tự động stretch cột chứa "Tên" hoặc "Sản phẩm" và resize các cột khác về nội dung
         try:
             header = table_widget.horizontalHeader()
             product_col_index = -1
-            
+
             # Tìm cột có tên chứa "sản phẩm" hoặc "tên"
             for col in range(table_widget.columnCount()):
                 header_text = table_widget.horizontalHeaderItem(col)
@@ -1308,7 +1362,7 @@ class MainWindow(QWidget):
                     if "sản phẩm" in text or ("tên" in text and "username" not in text):
                         product_col_index = col
                         break
-            
+
             # Nếu tìm thấy cột sản phẩm, set stretch cho cột đó
             if product_col_index >= 0:
                 for col in range(table_widget.columnCount()):
@@ -1422,48 +1476,50 @@ class MainWindow(QWidget):
     def init_tab_home(self):
         """Tab Home - Tổng quan sản phẩm đã xuất (XHD + Xuất bổ) với quy đổi LÍT"""
         layout = QVBoxLayout()
-        
+
         # Title
         title = QLabel("<h2>🏠 TỔNG QUAN SẢN PHẨM ĐÃ XUẤT</h2>")
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
-        
+
         # Filter bar
         filter_layout = QHBoxLayout()
-        
+
         filter_layout.addWidget(QLabel("Từ ngày:"))
         self.home_tu_ngay = QDateEdit()
         self.home_tu_ngay.setCalendarPopup(True)
         self.home_tu_ngay.setDate(QDate.currentDate().addMonths(-1))
         filter_layout.addWidget(self.home_tu_ngay)
-        
+
         filter_layout.addWidget(QLabel("Đến ngày:"))
         self.home_den_ngay = QDateEdit()
         self.home_den_ngay.setCalendarPopup(True)
         self.home_den_ngay.setDate(QDate.currentDate())
         filter_layout.addWidget(self.home_den_ngay)
-        
+
         btn_load_home = QPushButton("📊 Tải dữ liệu")
         btn_load_home.clicked.connect(self.load_home_data)
         filter_layout.addWidget(btn_load_home)
-        
+
         filter_layout.addStretch()
         layout.addLayout(filter_layout)
-        
+
         # Table
         self.tbl_home = QTableWidget()
         self.tbl_home.setColumnCount(6)
-        self.tbl_home.setHorizontalHeaderLabels([
-            "Tên sản phẩm",
-            "Đơn vị",
-            "Tồn kho",
-            "Đã xuất (XHD)",
-            "Đã xuất (Xuất bổ)",
-            "Tổng LÍT"
-        ])
+        self.tbl_home.setHorizontalHeaderLabels(
+            [
+                "Tên sản phẩm",
+                "Đơn vị",
+                "Tồn kho",
+                "Đã xuất (XHD)",
+                "Đã xuất (Xuất bổ)",
+                "Tổng LÍT",
+            ]
+        )
         self.setup_table(self.tbl_home)
         layout.addWidget(self.tbl_home)
-        
+
         # Summary labels
         summary_layout = QHBoxLayout()
         self.lbl_home_tong_sp = QLabel("Tổng sản phẩm: 0")
@@ -1472,101 +1528,108 @@ class MainWindow(QWidget):
         summary_layout.addStretch()
         summary_layout.addWidget(self.lbl_home_tong_lit)
         layout.addLayout(summary_layout)
-        
+
         self.tab_home.setLayout(layout)
-        
+
         # Auto-load on init (with error handling)
         try:
             self.load_home_data()
         except Exception as e:
             print(f"⚠️ Tab Home init: Không thể tải dữ liệu ban đầu - {e}")
-    
+
     def parse_don_vi_to_liters(self, don_vi_text):
         """
         Parse đơn vị thành số LÍT
-        
+
         ⚠️ QUY TẮC ĐặC BIỆT:
         - Nếu parse ra >= 50 lít → Coi như 1 đơn vị = 1 lít
         - Nếu parse ra < 50 lít → Giữ nguyên giá trị
-        
+
         Ví dụ:
         - "209 lít" → Parse: 209 → Vì 209 >= 50 → Return: 1 lít/đơn vị
         - "4 lít" → Parse: 4 → Vì 4 < 50 → Return: 4 lít/đơn vị
         - "1 lít" → 1
         - "lít" → 1
         - "chai" / "lon" / khác → 1 (mặc định)
-        
+
         Returns:
             float: Số lít per đơn vị
         """
         if not don_vi_text:
             return 1.0
-        
+
         import re
+
         text = str(don_vi_text).lower().strip()
-        
+
         # Pattern: "209 lít", "4 lít", etc
-        match = re.search(r'(\d+(?:\.\d+)?)\s*l[ií]t', text)
+        match = re.search(r"(\d+(?:\.\d+)?)\s*l[ií]t", text)
         if match:
             parsed_value = float(match.group(1))
-            
+
             # ⚠️ QUY TẮC ĐẶC BIỆT: Nếu >= 50 → Chỉ tính 1 lít/đơn vị
             if parsed_value >= 50:
                 return 1.0
             else:
                 return parsed_value
-        
+
         # Nếu chỉ có "lít" (không có số)
-        if 'lít' in text or 'lit' in text:
+        if "lít" in text or "lit" in text:
             return 1.0
-        
+
         # Mặc định: 1 đơn vị = 1 lít
         return 1.0
-    
+
     def load_home_data(self):
         """Load dữ liệu tổng quan: Tồn kho + Đã xuất (XHD + Xuất bổ)"""
         try:
             from db import ket_noi
-            
+
             tu_ngay = self.home_tu_ngay.date().toString("yyyy-MM-dd")
             den_ngay = self.home_den_ngay.date().toString("yyyy-MM-dd")
-            
+
             conn = ket_noi()
             c = conn.cursor()
-            
+
             # Lấy tất cả sản phẩm
-            c.execute("""
+            c.execute(
+                """
                 SELECT id, ten, don_vi, 
                        COALESCE(gia_le, 0), 
                        COALESCE(gia_buon, 0), 
                        COALESCE(gia_vip, 0)
                 FROM SanPham
                 ORDER BY ten
-            """)
+            """
+            )
             products = c.fetchall()
-            
+
             data = []
             tong_lit = 0.0
-            
+
             for product in products:
                 product_id = product[0]
                 ten = product[1]
                 don_vi = product[2]
-                
+
                 # Parse đơn vị → số lít
                 liters_per_unit = self.parse_don_vi_to_liters(don_vi)
-                
+
                 # 1. Tồn kho
-                c.execute("""
+                c.execute(
+                    """
                     SELECT COALESCE(SUM(so_luong), 0)
                     FROM LogKho
                     WHERE sanpham_id = ?
-                """, (product_id,))
+                """,
+                    (product_id,),
+                )
                 ton_kho_result = c.fetchone()
                 ton_kho = ton_kho_result[0] if ton_kho_result else 0
-                
+
                 # 2. Đã xuất HÓA ĐƠN (XHD = 1)
-                c.execute("""
+                c.execute(
+                    """
                     SELECT COALESCE(SUM(ct.so_luong), 0)
                     FROM ChiTietHoaDon ct
                     JOIN HoaDon h ON ct.hoadon_id = h.id
@@ -1575,78 +1638,94 @@ class MainWindow(QWidget):
                       AND ct.xuat_hoa_don = 1
                       AND date(h.ngay) >= ?
                       AND date(h.ngay) <= ?
-                """, (product_id, tu_ngay, den_ngay))
+                """,
+                    (product_id, tu_ngay, den_ngay),
+                )
                 xhd_result = c.fetchone()
                 xhd_qty = xhd_result[0] if xhd_result else 0
-                
+
                 # 3. Đã xuất BỔ (từ bảng ChenhLechXuatBo)
-                c.execute("""
+                c.execute(
+                    """
                     SELECT COALESCE(SUM(so_luong), 0)
                     FROM ChenhLechXuatBo
                     WHERE ten_sanpham = ?
                       AND date(ngay) >= ?
                       AND date(ngay) <= ?
-                """, (ten, tu_ngay, den_ngay))
+                """,
+                    (ten, tu_ngay, den_ngay),
+                )
                 xuat_bo_result = c.fetchone()
                 xuat_bo_qty = xuat_bo_result[0] if xuat_bo_result else 0
-                
+
                 # Tính tổng LÍT
                 total_qty = float(xhd_qty) + float(xuat_bo_qty)
                 total_liters = total_qty * liters_per_unit
-                
+
                 # Chỉ hiển thị sản phẩm có xuất
                 if total_qty > 0:
-                    data.append({
-                        'ten': ten,
-                        'don_vi': don_vi,
-                        'ton_kho': ton_kho,
-                        'xhd': xhd_qty,
-                        'xuat_bo': xuat_bo_qty,
-                        'liters': total_liters
-                    })
+                    data.append(
+                        {
+                            "ten": ten,
+                            "don_vi": don_vi,
+                            "ton_kho": ton_kho,
+                            "xhd": xhd_qty,
+                            "xuat_bo": xuat_bo_qty,
+                            "liters": total_liters,
+                        }
+                    )
                     tong_lit += total_liters
-            
+
             conn.close()
-            
+
             # Hiển thị lên bảng
             self.tbl_home.setRowCount(len(data))
-            
+
             for row, item in enumerate(data):
                 # Tên sản phẩm
-                self.tbl_home.setItem(row, 0, QTableWidgetItem(item['ten']))
-                
+                self.tbl_home.setItem(row, 0, QTableWidgetItem(item["ten"]))
+
                 # Đơn vị
-                self.tbl_home.setItem(row, 1, QTableWidgetItem(item['don_vi']))
-                
+                self.tbl_home.setItem(row, 1, QTableWidgetItem(item["don_vi"]))
+
                 # Tồn kho
-                self.tbl_home.setItem(row, 2, QTableWidgetItem(f"{item['ton_kho']:.2f}"))
-                
+                self.tbl_home.setItem(
+                    row, 2, QTableWidgetItem(f"{item['ton_kho']:.2f}")
+                )
+
                 # Đã xuất XHD
                 self.tbl_home.setItem(row, 3, QTableWidgetItem(f"{item['xhd']:.2f}"))
-                
+
                 # Đã xuất Xuất bổ
-                self.tbl_home.setItem(row, 4, QTableWidgetItem(f"{item['xuat_bo']:.2f}"))
-                
+                self.tbl_home.setItem(
+                    row, 4, QTableWidgetItem(f"{item['xuat_bo']:.2f}")
+                )
+
                 # Tổng LÍT
                 lit_item = QTableWidgetItem(f"{item['liters']:.2f} L")
                 lit_item.setForeground(QColor(0, 100, 200))  # Màu xanh dương
                 from PyQt5.QtGui import QFont
+
                 font = QFont()
                 font.setBold(True)
                 lit_item.setFont(font)
                 self.tbl_home.setItem(row, 5, lit_item)
-            
+
             # Update summary
             self.lbl_home_tong_sp.setText(f"Tổng sản phẩm: {len(data)}")
-            self.lbl_home_tong_lit.setText(f"<b>Tổng LÍT đã xuất: {tong_lit:,.2f} L</b>")
-            
+            self.lbl_home_tong_lit.setText(
+                f"<b>Tổng LÍT đã xuất: {tong_lit:,.2f} L</b>"
+            )
+
             # Resize columns
             self.tbl_home.resizeColumnsToContents()
-            
+
         except Exception as e:
             from utils.ui_helpers import show_error
+
             show_error(self, "Lỗi", f"Lỗi tải dữ liệu Home: {e}")
             import traceback
+
             traceback.print_exc()
 
     def init_tab_sanpham(self):
@@ -2125,7 +2204,17 @@ class MainWindow(QWidget):
         self.tbl_giohang = QTableWidget()
         self.tbl_giohang.setColumnCount(9)  # Thêm 1 cột cho "Người cho nợ"
         self.tbl_giohang.setHorizontalHeaderLabels(
-            ["Tên", "SL", "Đơn giá", "Giảm giá", "Tổng tiền", "VIP", "XHD", "Ghi chú", "Người cho nợ"]
+            [
+                "Tên",
+                "SL",
+                "Đơn giá",
+                "Giảm giá",
+                "Tổng tiền",
+                "VIP",
+                "XHD",
+                "Ghi chú",
+                "Người cho nợ",
+            ]
         )
         self.setup_table(self.tbl_giohang)
         self.tbl_giohang.setEditTriggers(QTableWidget.AllEditTriggers)
@@ -2191,13 +2280,14 @@ class MainWindow(QWidget):
         xhd_item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
         self.tbl_giohang.setItem(row, 6, xhd_item)  # XHD
         self.tbl_giohang.setItem(row, 7, QTableWidgetItem(""))  # Ghi chú
-        
+
         # Cột 8: Người cho nợ - QComboBox với danh sách user
         cho_no_combo = QComboBox()
         cho_no_combo.addItem("-- Không --", None)  # Mặc định không cho nợ
-        
+
         # Lấy danh sách user (trừ user hiện tại)
         from users import lay_tat_ca_user
+
         try:
             users = lay_tat_ca_user()
             for user in users:
@@ -2205,9 +2295,9 @@ class MainWindow(QWidget):
                     cho_no_combo.addItem(f"{user[1]}", user[0])  # username, user_id
         except Exception as e:
             logger.error(f"Error loading users for debt combo: {e}")
-        
+
         self.tbl_giohang.setCellWidget(row, 8, cho_no_combo)  # Người cho nợ
-        
+
         logger.debug(f"Added row {row} with default values")
 
     def update_giohang_row(self, row):
@@ -2302,7 +2392,7 @@ class MainWindow(QWidget):
     def tao_hoa_don_click(self):
         items = []
         cho_no_items = []  # Danh sách các item có cho nợ
-        
+
         for row in range(self.tbl_giohang.rowCount()):
             ten_item = self.tbl_giohang.item(row, 0)
             sl_spin = self.tbl_giohang.cellWidget(row, 1)
@@ -2341,34 +2431,36 @@ class MainWindow(QWidget):
             )
             xhd = xhd_item.checkState() == Qt.Checked
             ghi_chu = ghi_chu_item.text().strip() if ghi_chu_item else ""
-            
+
             # Kiểm tra người cho nợ
             cho_no_user_id = cho_no_combo.currentData() if cho_no_combo else None
-            
+
             # Nếu có chọn người cho nợ
             if cho_no_user_id is not None:
                 # Bắt buộc phải có ghi chú
                 if not ghi_chu:
                     show_error(
-                        self, 
-                        "Lỗi", 
+                        self,
+                        "Lỗi",
                         f"Dòng {row+1}: Phải nhập ghi chú khi cho nợ\n"
-                        f"Ví dụ: 'A Bình nợ' hoặc 'Khách hàng X mua chịu'"
+                        f"Ví dụ: 'A Bình nợ' hoặc 'Khách hàng X mua chịu'",
                     )
                     return
-                
+
                 # Tính tổng tiền của dòng này
                 tong_tien = so_luong * gia - giam
-                
+
                 # Lưu thông tin cho nợ
-                cho_no_items.append({
-                    'user_id': cho_no_user_id,
-                    'so_tien': tong_tien,
-                    'ghi_chu': ghi_chu,
-                    'ten_sanpham': ten,
-                    'so_luong': so_luong,
-                    'gia': gia
-                })
+                cho_no_items.append(
+                    {
+                        "user_id": cho_no_user_id,
+                        "so_tien": tong_tien,
+                        "ghi_chu": ghi_chu,
+                        "ten_sanpham": ten,
+                        "so_luong": so_luong,
+                        "gia": gia,
+                    }
+                )
 
             items.append(
                 {
@@ -2446,56 +2538,67 @@ class MainWindow(QWidget):
         self.cap_nhat_completer_sanpham()
 
         show_success(self, f"Tạo hóa đơn thành công, ID: {msg}")
-        
+
         # ✅ XỬ LÝ CHO NỢ: Chuyển tiền cho user được chọn
         if cho_no_items:
             from users import lay_tat_ca_user, chuyen_tien
+
             users = lay_tat_ca_user()
             user_dict = {u[0]: u[1] for u in users}  # {user_id: username}
-            
+
             for cho_no in cho_no_items:
                 try:
-                    user_nhan_id = cho_no['user_id']
-                    so_tien = cho_no['so_tien']
-                    
+                    user_nhan_id = cho_no["user_id"]
+                    so_tien = cho_no["so_tien"]
+
                     # Lấy username từ ghi chú (ví dụ: "A Bình nợ" → "A Bình")
                     # hoặc dùng tên sản phẩm
-                    ghi_chu_chuyen = cho_no['ghi_chu']
-                    ten_sp = cho_no['ten_sanpham']
-                    user_nhan_name = user_dict.get(user_nhan_id, f"User #{user_nhan_id}")
-                    
+                    ghi_chu_chuyen = cho_no["ghi_chu"]
+                    ten_sp = cho_no["ten_sanpham"]
+                    user_nhan_name = user_dict.get(
+                        user_nhan_id, f"User #{user_nhan_id}"
+                    )
+
                     # Tạo ghi chú chi tiết cho giao dịch
-                    ghi_chu_full = f"[CHO NỢ] {ghi_chu_chuyen} - {ten_sp} x{cho_no['so_luong']}"
-                    
+                    ghi_chu_full = (
+                        f"[CHO NỢ] {ghi_chu_chuyen} - {ten_sp} x{cho_no['so_luong']}"
+                    )
+
                     # Chuyển tiền từ user hiện tại sang user được chọn
                     success_transfer, msg_transfer = chuyen_tien(
-                        self.user_id, 
-                        user_nhan_id, 
-                        so_tien
+                        self.user_id, user_nhan_id, so_tien
                     )
-                    
+
                     if success_transfer:
-                        print(f"✅ Chuyển nợ: {format_price(so_tien)} → {user_nhan_name}")
+                        print(
+                            f"✅ Chuyển nợ: {format_price(so_tien)} → {user_nhan_name}"
+                        )
                         print(f"   Ghi chú: {ghi_chu_full}")
-                        
+
                         # Cập nhật ghi chú vào bảng GiaoDichQuy
                         try:
                             conn = ket_noi()
                             c = conn.cursor()
                             # Lấy giao dịch vừa tạo (mới nhất từ user này)
-                            c.execute("""
+                            c.execute(
+                                """
                                 SELECT id FROM GiaoDichQuy 
                                 WHERE user_id = ? AND user_nhan_id = ? 
                                 ORDER BY id DESC LIMIT 1
-                            """, (self.user_id, user_nhan_id))
+                            """,
+                                (self.user_id, user_nhan_id),
+                            )
                             gd_row = c.fetchone()
                             if gd_row:
                                 gd_id = gd_row[0]
-                                c.execute("""
+                                c.execute(
+                                    """
                                     UPDATE GiaoDichQuy 
                                     SET ghi_chu = ? 
                                     WHERE id = ?
-                                """, (ghi_chu_full, gd_id))
+                                """,
+                                    (ghi_chu_full, gd_id),
+                                )
                                 conn.commit()
                             conn.close()
                         except Exception as e:
@@ -2503,15 +2606,16 @@ class MainWindow(QWidget):
                     else:
                         print(f"⚠️ Lỗi chuyển nợ: {msg_transfer}")
                         show_error(
-                            self, 
-                            "Cảnh báo", 
+                            self,
+                            "Cảnh báo",
                             f"Không thể chuyển nợ cho {user_nhan_name}: {msg_transfer}\n"
-                            f"Hóa đơn đã được tạo nhưng giao dịch chuyển tiền thất bại."
+                            f"Hóa đơn đã được tạo nhưng giao dịch chuyển tiền thất bại.",
                         )
-                        
+
                 except Exception as e:
                     print(f"⚠️ Lỗi xử lý cho nợ: {e}")
                     import traceback
+
                     traceback.print_exc()
 
         # Tự động làm mới các tab liên quan (với error handling)
@@ -2519,29 +2623,29 @@ class MainWindow(QWidget):
             self.load_chitietban()  # Tab chi tiết bán
         except Exception as e:
             print(f"⚠️ Không thể load chi tiết bán: {e}")
-        
+
         try:
             self.load_hoadon()  # Tab hóa đơn
         except Exception as e:
             print(f"⚠️ Không thể load hóa đơn: {e}")
-        
+
         # Tab sổ quỹ chỉ có cho accountant
-        if hasattr(self, 'load_so_quy'):
+        if hasattr(self, "load_so_quy"):
             try:
                 self.load_so_quy()
             except Exception as e:
                 print(f"⚠️ Không thể load sổ quỹ: {e}")
-        
+
         # Tab lịch sử giao dịch - refresh nếu tồn tại (để hiện giao dịch cho nợ)
-        if hasattr(self, 'load_lich_su_quy'):
+        if hasattr(self, "load_lich_su_quy"):
             try:
                 self.load_lich_su_quy()
                 print("✅ Đã refresh lịch sử giao dịch")
             except Exception as e:
                 print(f"⚠️ Không thể load lịch sử giao dịch: {e}")
-        
+
         # Tab Home - refresh nếu tồn tại
-        if hasattr(self, 'load_home_data'):
+        if hasattr(self, "load_home_data"):
             try:
                 self.load_home_data()
             except Exception as e:
@@ -2710,7 +2814,9 @@ class MainWindow(QWidget):
             # Nếu số dư > 0 thì hiện nút, nếu = 0 thì hiện "Đã thanh toán"
             if so_du > 0:
                 btn_nop = QPushButton("💰 Nộp cho Accountant")
-                btn_nop.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
+                btn_nop.setStyleSheet(
+                    "background-color: #4CAF50; color: white; font-weight: bold;"
+                )
                 btn_nop.clicked.connect(lambda checked, r=row_idx: self.nop_tien(r))
                 self.tbl_chitietban.setCellWidget(row_idx, 7, btn_nop)
             else:
@@ -2907,21 +3013,29 @@ class MainWindow(QWidget):
         layout.addWidget(QLabel(f"<h2>PHIẾU NỘP TIỀN CHO ACCOUNTANT</h2>"))
         from datetime import datetime
 
-        layout.addWidget(QLabel(f"<b>Ngày:</b> {datetime.now().strftime('%d/%m/%Y %H:%M')}"))
+        layout.addWidget(
+            QLabel(f"<b>Ngày:</b> {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+        )
         layout.addWidget(QLabel(f"<b>Từ:</b> {username_from} (Nhân viên bán hàng)"))
-        layout.addWidget(QLabel(f"<b>Đến:</b> {accountant_username} (Accountant - Quản lý xuất bổ)"))
-        layout.addWidget(QLabel(f"<b>Số tiền còn nợ:</b> <span style='color: red; font-size: 14pt;'>{format_price(so_du_hien_tai)}</span>"))
+        layout.addWidget(
+            QLabel(f"<b>Đến:</b> {accountant_username} (Accountant - Quản lý xuất bổ)")
+        )
+        layout.addWidget(
+            QLabel(
+                f"<b>Số tiền còn nợ:</b> <span style='color: red; font-size: 14pt;'>{format_price(so_du_hien_tai)}</span>"
+            )
+        )
         layout.addWidget(QLabel(""))
-        layout.addWidget(QLabel("<i>💡 Nộp tiền để Accountant có tiền xuất bổ cho khách</i>"))
+        layout.addWidget(
+            QLabel("<i>💡 Nộp tiền để Accountant có tiền xuất bổ cho khách</i>")
+        )
         layout.addWidget(QLabel(""))
 
         # Nhập số tiền nộp
         tien_layout = QHBoxLayout()
         tien_layout.addWidget(QLabel("<b>Số tiền nộp:</b>"))
         so_tien_edit = QLineEdit()
-        so_tien_edit.setPlaceholderText(
-            f"Tối đa {format_price(so_du_hien_tai)}"
-        )
+        so_tien_edit.setPlaceholderText(f"Tối đa {format_price(so_du_hien_tai)}")
         so_tien_edit.setText(str(int(so_du_hien_tai)))  # Mặc định nộp hết
         so_tien_edit.setStyleSheet("font-size: 14pt; padding: 5px;")
         tien_layout.addWidget(so_tien_edit)
@@ -2948,7 +3062,9 @@ class MainWindow(QWidget):
 
         # Nút xác nhận
         btn_confirm = QPushButton("✅ Xác nhận nộp tiền cho Accountant")
-        btn_confirm.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; padding: 10px; font-size: 12pt;")
+        btn_confirm.setStyleSheet(
+            "background-color: #4CAF50; color: white; font-weight: bold; padding: 10px; font-size: 12pt;"
+        )
         btn_confirm.clicked.connect(
             lambda: self.xac_nhan_nop_tien(
                 user_id_from,
@@ -3024,9 +3140,9 @@ class MainWindow(QWidget):
                         f"Vui lòng nộp tiếp số còn lại!",
                     )
                 self.load_chitietban()  # Làm mới bảng
-                if hasattr(self, 'load_so_quy'):
+                if hasattr(self, "load_so_quy"):
                     self.load_so_quy()  # Tự động làm mới tab Sổ quỹ
-                if hasattr(self, 'load_lich_su_quy'):
+                if hasattr(self, "load_lich_su_quy"):
                     self.load_lich_su_quy()  # Tự động làm mới lịch sử giao dịch
                 dialog.close()
             else:
@@ -3134,7 +3250,7 @@ class MainWindow(QWidget):
     def sua_hoadon_chitiet_admin(self):
         """Admin sửa toàn bộ ca bán hàng (chi tiết sản phẩm)"""
         from invoices import lay_chi_tiet_hoadon
-        
+
         row = self.tbl_chitietban.currentRow()
         if row < 0:
             show_warning(self, "Vui lòng chọn ca bán hàng cần sửa")
@@ -3164,43 +3280,53 @@ class MainWindow(QWidget):
         # Bảng chi tiết sản phẩm (cho phép sửa)
         tbl_edit = QTableWidget()
         tbl_edit.setColumnCount(9)
-        tbl_edit.setHorizontalHeaderLabels([
-            "ID", "Tên sản phẩm", "SL", "Đơn giá", "Giảm giá", 
-            "VIP", "XHD", "Ghi chú", "Người cho nợ"
-        ])
-        
+        tbl_edit.setHorizontalHeaderLabels(
+            [
+                "ID",
+                "Tên sản phẩm",
+                "SL",
+                "Đơn giá",
+                "Giảm giá",
+                "VIP",
+                "XHD",
+                "Ghi chú",
+                "Người cho nợ",
+            ]
+        )
+
         # Ẩn cột ID
         tbl_edit.setColumnHidden(0, True)
-        
+
         # Load dữ liệu hiện tại
         tbl_edit.setRowCount(len(chi_tiet))
-        
+
         # Lấy danh sách user cho dropdown "Người cho nợ"
         from users import lay_tat_ca_user
+
         users = lay_tat_ca_user()
         user_dict = {u[0]: u[1] for u in users}  # {user_id: username}
-        
+
         for idx, ct in enumerate(chi_tiet):
             # Query: c.id, c.hoadon_id, c.sanpham_id, s.ten, c.so_luong, c.loai_gia, c.gia, c.xuat_hoa_don, s.gia_le, c.giam, c.ghi_chu
-            chitiet_id = ct[0]      # c.id
+            chitiet_id = ct[0]  # c.id
             # ct[1] = c.hoadon_id (skip)
-            sanpham_id = ct[2]      # c.sanpham_id
-            ten_sp = ct[3]          # s.ten
-            so_luong = ct[4]        # c.so_luong
-            loai_gia = ct[5]        # c.loai_gia
-            gia = ct[6]             # c.gia
+            sanpham_id = ct[2]  # c.sanpham_id
+            ten_sp = ct[3]  # s.ten
+            so_luong = ct[4]  # c.so_luong
+            loai_gia = ct[5]  # c.loai_gia
+            gia = ct[6]  # c.gia
             xuat_hoa_don = ct[7] if len(ct) > 7 else 0  # c.xuat_hoa_don
             # ct[8] = s.gia_le (skip)
-            giam = ct[9] if len(ct) > 9 else 0          # c.giam
-            ghi_chu = ct[10] if len(ct) > 10 else ""    # c.ghi_chu
-            
+            giam = ct[9] if len(ct) > 9 else 0  # c.giam
+            ghi_chu = ct[10] if len(ct) > 10 else ""  # c.ghi_chu
+
             # Cột 0: ID chi tiết (ẩn)
             tbl_edit.setItem(idx, 0, QTableWidgetItem(str(chitiet_id)))
-            
+
             # Cột 1: Tên sản phẩm (có autocomplete)
             item_ten = QTableWidgetItem(ten_sp)
             tbl_edit.setItem(idx, 1, item_ten)
-            
+
             # Cột 2: Số lượng (QDoubleSpinBox)
             sl_spin = QDoubleSpinBox()
             sl_spin.setMinimum(0.001)
@@ -3208,11 +3334,11 @@ class MainWindow(QWidget):
             sl_spin.setDecimals(3)
             sl_spin.setValue(float(so_luong))
             tbl_edit.setCellWidget(idx, 2, sl_spin)
-            
+
             # Cột 3: Đơn giá (editable)
             item_gia = QTableWidgetItem(str(int(gia)))
             tbl_edit.setItem(idx, 3, item_gia)
-            
+
             # Cột 4: Giảm giá (QDoubleSpinBox)
             giam_spin = QDoubleSpinBox()
             giam_spin.setMinimum(0)
@@ -3220,82 +3346,84 @@ class MainWindow(QWidget):
             giam_spin.setDecimals(2)
             giam_spin.setValue(float(giam))
             tbl_edit.setCellWidget(idx, 4, giam_spin)
-            
+
             # Cột 5: VIP (checkbox)
             vip_check = QCheckBox()
-            is_vip = (loai_gia and 'vip' in loai_gia.lower())
+            is_vip = loai_gia and "vip" in loai_gia.lower()
             vip_check.setChecked(is_vip)
             tbl_edit.setCellWidget(idx, 5, vip_check)
-            
+
             # Cột 6: XHD (checkbox)
             xhd_check = QCheckBox()
             xhd_check.setChecked(bool(xuat_hoa_don))
             tbl_edit.setCellWidget(idx, 6, xhd_check)
-            
+
             # Cột 7: Ghi chú (editable)
             item_ghi_chu = QTableWidgetItem(ghi_chu or "")
             tbl_edit.setItem(idx, 7, item_ghi_chu)
-            
+
             # Cột 8: Người cho nợ (QComboBox)
             cho_no_combo = QComboBox()
             cho_no_combo.addItem("-- Không --", None)
-            
+
             # Thêm danh sách user
             for user in users:
                 cho_no_combo.addItem(f"{user[1]}", user[0])
-            
+
             # TODO: Lấy thông tin người cho nợ từ ghi chú hoặc bảng riêng
             # Hiện tại để mặc định "-- Không --"
-            
+
             tbl_edit.setCellWidget(idx, 8, cho_no_combo)
-        
+
         self.setup_table(tbl_edit)
         layout.addWidget(tbl_edit)
 
         # Nút thêm/xóa dòng
         btn_row_layout = QHBoxLayout()
         btn_row_layout.addStretch()
-        
+
         btn_them_dong = QPushButton("➕ Thêm dòng")
-        btn_them_dong.clicked.connect(lambda: self.them_dong_sua_chitiet(tbl_edit, users))
+        btn_them_dong.clicked.connect(
+            lambda: self.them_dong_sua_chitiet(tbl_edit, users)
+        )
         btn_row_layout.addWidget(btn_them_dong)
-        
+
         btn_xoa_dong = QPushButton("➖ Xóa dòng")
         btn_xoa_dong.clicked.connect(lambda: self.xoa_dong_sua_chitiet(tbl_edit))
         btn_row_layout.addWidget(btn_xoa_dong)
-        
+
         layout.addLayout(btn_row_layout)
 
         # Nút Lưu và Hủy
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
-        
+
         btn_luu = QPushButton("💾 Lưu thay đổi")
         btn_luu.clicked.connect(
             lambda: self.luu_sua_chitiet(dialog, hoadon_id, tbl_edit)
         )
         btn_layout.addWidget(btn_luu)
-        
+
         btn_huy = QPushButton("❌ Hủy")
         btn_huy.clicked.connect(dialog.reject)
         btn_layout.addWidget(btn_huy)
-        
+
         layout.addLayout(btn_layout)
-        
+
         dialog.setLayout(layout)
         dialog.exec_()
-    
+
     def them_dong_sua_chitiet(self, table, users):
         """Thêm dòng mới vào bảng sửa chi tiết"""
         row = table.rowCount()
         table.insertRow(row)
-        
+
         # Cột 0: ID (để trống cho dòng mới)
         table.setItem(row, 0, QTableWidgetItem("0"))
-        
+
         # Cột 1: Tên sản phẩm
         table.setItem(row, 1, QTableWidgetItem(""))
-        
+
         # Cột 2: Số lượng
         sl_spin = QDoubleSpinBox()
         sl_spin.setMinimum(0.001)
@@ -3303,10 +3431,10 @@ class MainWindow(QWidget):
         sl_spin.setDecimals(3)
         sl_spin.setValue(1.0)
         table.setCellWidget(row, 2, sl_spin)
-        
+
         # Cột 3: Đơn giá
         table.setItem(row, 3, QTableWidgetItem("0"))
-        
+
         # Cột 4: Giảm giá
         giam_spin = QDoubleSpinBox()
         giam_spin.setMinimum(0)
@@ -3314,25 +3442,25 @@ class MainWindow(QWidget):
         giam_spin.setDecimals(2)
         giam_spin.setValue(0)
         table.setCellWidget(row, 4, giam_spin)
-        
+
         # Cột 5: VIP
         vip_check = QCheckBox()
         table.setCellWidget(row, 5, vip_check)
-        
+
         # Cột 6: XHD
         xhd_check = QCheckBox()
         table.setCellWidget(row, 6, xhd_check)
-        
+
         # Cột 7: Ghi chú
         table.setItem(row, 7, QTableWidgetItem(""))
-        
+
         # Cột 8: Người cho nợ
         cho_no_combo = QComboBox()
         cho_no_combo.addItem("-- Không --", None)
         for user in users:
             cho_no_combo.addItem(f"{user[1]}", user[0])
         table.setCellWidget(row, 8, cho_no_combo)
-    
+
     def xoa_dong_sua_chitiet(self, table):
         """Xóa dòng được chọn"""
         row = table.currentRow()
@@ -3341,82 +3469,86 @@ class MainWindow(QWidget):
                 self,
                 "Xác nhận xóa",
                 f"Xóa dòng {row + 1}?",
-                QMessageBox.Yes | QMessageBox.No
+                QMessageBox.Yes | QMessageBox.No,
             )
             if reply == QMessageBox.Yes:
                 table.removeRow(row)
-    
+
     def luu_sua_chitiet(self, dialog, hoadon_id, table):
         """Lưu thay đổi chi tiết hóa đơn"""
         try:
             from db import ket_noi
             from products import tim_sanpham
-            
+
             # Thu thập dữ liệu từ bảng
             chi_tiet_moi = []
-            
+
             for row in range(table.rowCount()):
                 # Lấy dữ liệu từ các widget
                 chitiet_id_item = table.item(row, 0)
                 chitiet_id = int(chitiet_id_item.text()) if chitiet_id_item else 0
-                
+
                 ten_sp_item = table.item(row, 1)
                 if not ten_sp_item or not ten_sp_item.text().strip():
                     continue  # Bỏ qua dòng rỗng
-                
+
                 ten_sp = ten_sp_item.text().strip()
-                
+
                 # Tìm sản phẩm
                 sp_result = tim_sanpham(ten_sp)
                 if not sp_result:
-                    show_error(self, "Lỗi", f"Dòng {row+1}: Sản phẩm '{ten_sp}' không tồn tại")
+                    show_error(
+                        self, "Lỗi", f"Dòng {row+1}: Sản phẩm '{ten_sp}' không tồn tại"
+                    )
                     return
-                
+
                 sanpham_id = sp_result[0][0]
-                
+
                 # Lấy các giá trị khác
                 sl_spin = table.cellWidget(row, 2)
                 so_luong = sl_spin.value() if sl_spin else 1.0
-                
+
                 gia_item = table.item(row, 3)
                 gia = float(gia_item.text()) if gia_item else 0
-                
+
                 giam_spin = table.cellWidget(row, 4)
                 giam = giam_spin.value() if giam_spin else 0
-                
+
                 vip_check = table.cellWidget(row, 5)
                 is_vip = vip_check.isChecked() if vip_check else False
                 loai_gia = "vip" if is_vip else "le"
-                
+
                 xhd_check = table.cellWidget(row, 6)
                 xuat_hoa_don = 1 if (xhd_check and xhd_check.isChecked()) else 0
-                
+
                 ghi_chu_item = table.item(row, 7)
                 ghi_chu = ghi_chu_item.text().strip() if ghi_chu_item else ""
-                
+
                 cho_no_combo = table.cellWidget(row, 8)
                 cho_no_user_id = cho_no_combo.currentData() if cho_no_combo else None
-                
-                chi_tiet_moi.append({
-                    'chitiet_id': chitiet_id,
-                    'sanpham_id': sanpham_id,
-                    'so_luong': so_luong,
-                    'gia': gia,
-                    'loai_gia': loai_gia,
-                    'giam': giam,
-                    'xuat_hoa_don': xuat_hoa_don,
-                    'ghi_chu': ghi_chu,
-                    'cho_no_user_id': cho_no_user_id
-                })
-            
+
+                chi_tiet_moi.append(
+                    {
+                        "chitiet_id": chitiet_id,
+                        "sanpham_id": sanpham_id,
+                        "so_luong": so_luong,
+                        "gia": gia,
+                        "loai_gia": loai_gia,
+                        "giam": giam,
+                        "xuat_hoa_don": xuat_hoa_don,
+                        "ghi_chu": ghi_chu,
+                        "cho_no_user_id": cho_no_user_id,
+                    }
+                )
+
             if not chi_tiet_moi:
                 show_error(self, "Lỗi", "Không có sản phẩm nào để lưu")
                 return
-            
+
             # Bắt đầu transaction
             conn = ket_noi()
             c = conn.cursor()
-            
+
             # Lấy thông tin hóa đơn để biết user_id (người bán ban đầu)
             c.execute("SELECT user_id, ngay FROM HoaDon WHERE id = ?", (hoadon_id,))
             hd_info = c.fetchone()
@@ -3424,110 +3556,132 @@ class MainWindow(QWidget):
                 show_error(self, "Lỗi", "Không tìm thấy hóa đơn")
                 conn.close()
                 return
-            
+
             user_ban_id = hd_info[0]
             ngay_hd = hd_info[1]
-            
+
             # Xóa tất cả chi tiết cũ
             c.execute("DELETE FROM ChiTietHoaDon WHERE hoadon_id = ?", (hoadon_id,))
-            
+
             # Thêm chi tiết mới và xử lý chuyển tiền cho người cho nợ
             for ct in chi_tiet_moi:
-                c.execute("""
+                c.execute(
+                    """
                     INSERT INTO ChiTietHoaDon 
                     (hoadon_id, sanpham_id, so_luong, gia, loai_gia, giam, xuat_hoa_don, ghi_chu)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    hoadon_id,
-                    ct['sanpham_id'],
-                    ct['so_luong'],
-                    ct['gia'],
-                    ct['loai_gia'],
-                    ct['giam'],
-                    ct['xuat_hoa_don'],
-                    ct['ghi_chu']
-                ))
-                
+                """,
+                    (
+                        hoadon_id,
+                        ct["sanpham_id"],
+                        ct["so_luong"],
+                        ct["gia"],
+                        ct["loai_gia"],
+                        ct["giam"],
+                        ct["xuat_hoa_don"],
+                        ct["ghi_chu"],
+                    ),
+                )
+
                 # Nếu có người cho nợ, tạo giao dịch chuyển tiền
-                if ct['cho_no_user_id']:
-                    tien_chuyen = ct['so_luong'] * ct['gia'] - ct['giam']
-                    
+                if ct["cho_no_user_id"]:
+                    tien_chuyen = ct["so_luong"] * ct["gia"] - ct["giam"]
+
                     # Lấy username của người cho nợ
-                    c.execute("SELECT username FROM Users WHERE id = ?", (ct['cho_no_user_id'],))
+                    c.execute(
+                        "SELECT username FROM Users WHERE id = ?",
+                        (ct["cho_no_user_id"],),
+                    )
                     user_cho_no = c.fetchone()
                     if user_cho_no:
                         username_cho_no = user_cho_no[0]
-                        
+
                         # Lấy tên sản phẩm từ database
-                        c.execute("SELECT ten FROM SanPham WHERE id = ?", (ct['sanpham_id'],))
+                        c.execute(
+                            "SELECT ten FROM SanPham WHERE id = ?", (ct["sanpham_id"],)
+                        )
                         sp_row = c.fetchone()
                         ten_sp = sp_row[0] if sp_row else "Sản phẩm"
-                        
+
                         ghi_chu_gd = f"[ADMIN SỬA] Cho nợ {username_cho_no}: {ten_sp} x{ct['so_luong']}"
-                        if ct['ghi_chu']:
+                        if ct["ghi_chu"]:
                             ghi_chu_gd += f" - {ct['ghi_chu']}"
-                        
+
                         # Chuyển tiền từ user bán sang user cho nợ
                         from datetime import datetime
+
                         ngay_gd = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        
+
                         # Ghi vào GiaoDichQuy
-                        c.execute("""
+                        c.execute(
+                            """
                             INSERT INTO GiaoDichQuy 
                             (user_id, loai, so_tien, ghi_chu, ngay)
                             VALUES (?, ?, ?, ?, ?)
-                        """, (
-                            user_ban_id,
-                            'chuyen_tien',
-                            -tien_chuyen,
-                            f"Chuyển tiền cho nợ → {username_cho_no}. {ghi_chu_gd}",
-                            ngay_gd
-                        ))
-                        
+                        """,
+                            (
+                                user_ban_id,
+                                "chuyen_tien",
+                                -tien_chuyen,
+                                f"Chuyển tiền cho nợ → {username_cho_no}. {ghi_chu_gd}",
+                                ngay_gd,
+                            ),
+                        )
+
                         # Cộng tiền cho người nhận nợ
-                        c.execute("""
+                        c.execute(
+                            """
                             INSERT INTO GiaoDichQuy 
                             (user_id, loai, so_tien, ghi_chu, ngay)
                             VALUES (?, ?, ?, ?, ?)
-                        """, (
-                            ct['cho_no_user_id'],
-                            'chuyen_tien',
-                            tien_chuyen,
-                            f"Nhận nợ từ ca bán HĐ#{hoadon_id}. {ghi_chu_gd}",
-                            ngay_gd
-                        ))
-                        
+                        """,
+                            (
+                                ct["cho_no_user_id"],
+                                "chuyen_tien",
+                                tien_chuyen,
+                                f"Nhận nợ từ ca bán HĐ#{hoadon_id}. {ghi_chu_gd}",
+                                ngay_gd,
+                            ),
+                        )
+
                         # Cập nhật số dư Users
-                        c.execute("""
+                        c.execute(
+                            """
                             UPDATE Users 
                             SET so_du = so_du - ? 
                             WHERE id = ?
-                        """, (tien_chuyen, user_ban_id))
-                        
-                        c.execute("""
+                        """,
+                            (tien_chuyen, user_ban_id),
+                        )
+
+                        c.execute(
+                            """
                             UPDATE Users 
                             SET so_du = so_du + ? 
                             WHERE id = ?
-                        """, (tien_chuyen, ct['cho_no_user_id']))
-            
+                        """,
+                            (tien_chuyen, ct["cho_no_user_id"]),
+                        )
+
             conn.commit()
             conn.close()
-            
+
             show_success(self, "Đã lưu thay đổi ca bán hàng và cập nhật giao dịch")
             self.load_chitietban()
-            
+
             # Refresh các tab liên quan
-            if hasattr(self, 'load_giaodich'):
+            if hasattr(self, "load_giaodich"):
                 try:
                     self.load_giaodich()
                 except:
                     pass
-            
+
             dialog.accept()
-            
+
         except Exception as e:
             show_error(self, "Lỗi", f"Lỗi khi lưu: {e}")
             import traceback
+
             traceback.print_exc()
 
     def xoa_hoadon_chitiet_admin(self):
@@ -4031,7 +4185,8 @@ class MainWindow(QWidget):
 
         # Header
         header_label = QLabel("🤖 AI AGENT - CHAT THÔNG MINH")
-        header_label.setStyleSheet("""
+        header_label.setStyleSheet(
+            """
             QLabel {
                 font-size: 18pt;
                 font-weight: bold;
@@ -4042,12 +4197,14 @@ class MainWindow(QWidget):
                 border-radius: 5px;
                 color: white;
             }
-        """)
+        """
+        )
         header_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(header_label)
 
         # Info box
-        info_box = QLabel("""
+        info_box = QLabel(
+            """
         <div style='background: #ecf0f1; padding: 15px; border-radius: 5px;'>
             <b>💡 AI Agent có thể:</b><br>
             • Trả lời câu hỏi về sản phẩm, giá cả, tồn kho<br>
@@ -4058,7 +4215,8 @@ class MainWindow(QWidget):
             <br>
             <b>🎯 Ví dụ:</b> "Tìm bia Tiger", "Còn hàng không?", "Bán 2 bia cho khách 5"
         </div>
-        """)
+        """
+        )
         info_box.setWordWrap(True)
         layout.addWidget(info_box)
 
@@ -4069,41 +4227,46 @@ class MainWindow(QWidget):
 
         self.ai_chat_history = QTextEdit()
         self.ai_chat_history.setReadOnly(True)
-        
+
         # Set monospace font for table alignment
         mono_font_left = QFont("Consolas", 10)
         if not mono_font_left.exactMatch():
             mono_font_left = QFont("Courier New", 10)
         self.ai_chat_history.setFont(mono_font_left)
-        
-        self.ai_chat_history.setStyleSheet("""
+
+        self.ai_chat_history.setStyleSheet(
+            """
             QTextEdit {
                 background: white;
                 border: 2px solid #bdc3c7;
                 border-radius: 5px;
                 padding: 10px;
             }
-        """)
+        """
+        )
         layout.addWidget(self.ai_chat_history)
 
         # Input area
         input_layout = QHBoxLayout()
-        
+
         self.ai_input = QLineEdit()
         self.ai_input.setPlaceholderText("Nhập câu hỏi hoặc lệnh...")
-        self.ai_input.setStyleSheet("""
+        self.ai_input.setStyleSheet(
+            """
             QLineEdit {
                 padding: 10px;
                 font-size: 11pt;
                 border: 2px solid #3498db;
                 border-radius: 5px;
             }
-        """)
+        """
+        )
         self.ai_input.returnPressed.connect(self.send_ai_message)
         input_layout.addWidget(self.ai_input)
 
         send_btn = QPushButton("📤 Gửi")
-        send_btn.setStyleSheet("""
+        send_btn.setStyleSheet(
+            """
             QPushButton {
                 background: #3498db;
                 color: white;
@@ -4119,7 +4282,8 @@ class MainWindow(QWidget):
             QPushButton:pressed {
                 background: #21618c;
             }
-        """)
+        """
+        )
         send_btn.clicked.connect(self.send_ai_message)
         input_layout.addWidget(send_btn)
 
@@ -4127,7 +4291,7 @@ class MainWindow(QWidget):
 
         # Action buttons
         action_layout = QHBoxLayout()
-        
+
         clear_btn = QPushButton("🗑️ Xóa lịch sử")
         clear_btn.clicked.connect(self.clear_ai_history)
         action_layout.addWidget(clear_btn)
@@ -4143,13 +4307,17 @@ class MainWindow(QWidget):
         try:
             self.ai_agent = AIAssistant(
                 main_window=self,
-                current_user_role=self.role  # Pass user role for permissions
+                current_user_role=self.role,  # Pass user role for permissions
             )
             # Kiểm tra server
             if self.ai_agent.is_server_running():
-                self.ai_chat_history.append("✅ <b>AI đã sẵn sàng!</b> Hãy hỏi gì đó...\n")
+                self.ai_chat_history.append(
+                    "✅ <b>AI đã sẵn sàng!</b> Hãy hỏi gì đó...\n"
+                )
             else:
-                self.ai_chat_history.append("⚠️ <b>Ollama chưa chạy.</b> Chạy: ollama serve\n")
+                self.ai_chat_history.append(
+                    "⚠️ <b>Ollama chưa chạy.</b> Chạy: ollama serve\n"
+                )
         except Exception as e:
             self.ai_chat_history.append(f"❌ <b>Lỗi khởi tạo AI:</b> {e}\n")
             print(f"❌ Chi tiết lỗi AI: {e}")
@@ -4170,19 +4338,19 @@ class MainWindow(QWidget):
         try:
             self.ai_chat_history.append("<b>🤖 AI:</b> <i>Đang suy nghĩ...</i>")
             QApplication.processEvents()  # Update UI
-            
+
             # Gọi AI (role đã được set trong __init__)
             response = self.ai_agent.ask(message)
-            
+
             # Remove "thinking" message and add real response
             cursor = self.ai_chat_history.textCursor()
             cursor.movePosition(cursor.End)
             cursor.select(cursor.LineUnderCursor)
             cursor.removeSelectedText()
             cursor.deletePreviousChar()  # Remove newline
-            
+
             self.ai_chat_history.append(f"<b>🤖 AI:</b> {response}\n")
-            
+
         except Exception as e:
             self.ai_chat_history.append(f"<b>❌ Lỗi:</b> {e}\n")
             self.ai_chat_history.append("💡 Kiểm tra xem llama server đã chạy chưa?\n")
@@ -4245,22 +4413,22 @@ class MainWindow(QWidget):
             <li>Nếu AI không hiểu, hãy nói rõ hơn</li>
         </ul>
         """
-        
+
         dialog = QDialog(self)
         dialog.setWindowTitle("Hướng dẫn AI Agent")
         dialog.resize(600, 500)
-        
+
         layout = QVBoxLayout()
-        
+
         text_browser = QTextEdit()
         text_browser.setHtml(help_text)
         text_browser.setReadOnly(True)
         layout.addWidget(text_browser)
-        
+
         close_btn = QPushButton("Đóng")
         close_btn.clicked.connect(dialog.close)
         layout.addWidget(close_btn)
-        
+
         dialog.setLayout(layout)
         dialog.exec_()
 
@@ -4529,57 +4697,57 @@ class MainWindow(QWidget):
             show_error(self, "Lỗi", f"Lỗi vẽ biểu đồ: {str(e)}")
         finally:
             conn.close()
-    
+
     def init_tab_settings(self):
         """⚙️ Settings Tab - Cấu hình AI và Information"""
         # Create sub-tabs for Settings
         settings_tabs = QTabWidget()
-        
+
         # Tab 1: AI Settings
         tab_ai_settings = QWidget()
         self.init_ai_settings_content(tab_ai_settings)
         settings_tabs.addTab(tab_ai_settings, "🤖 AI Settings")
-        
+
         # Tab 2: Information
         tab_info = QWidget()
         self.init_information_content(tab_info)
         settings_tabs.addTab(tab_info, "ℹ️ Information")
-        
+
         # Set main layout
         main_layout = QVBoxLayout()
         main_layout.addWidget(settings_tabs)
         self.tab_settings.setLayout(main_layout)
-    
+
     def init_ai_settings_content(self, parent_widget):
         """Content for AI Settings tab"""
         layout = QVBoxLayout()
-        
+
         # Title
         title = QLabel("⚙️ CÀI ĐẶT AI")
         title.setFont(QFont("Arial", 16, QFont.Bold))
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
-        
+
         # AI Mode Status
         status_group = QGroupBox("📊 Trạng Thái AI")
         status_layout = QVBoxLayout()
-        
+
         self.ai_mode_label = QLabel()
         self.ai_model_label = QLabel()
         self.ai_status_label = QLabel()
-        
+
         self._update_ai_status_display()
-        
+
         status_layout.addWidget(self.ai_mode_label)
         status_layout.addWidget(self.ai_model_label)
         status_layout.addWidget(self.ai_status_label)
         status_group.setLayout(status_layout)
         layout.addWidget(status_group)
-        
+
         # Groq API Settings
         groq_group = QGroupBox("🚀 Groq API (Online Mode - Thông Minh Gấp 35 Lần!)")
         groq_layout = QVBoxLayout()
-        
+
         # Instructions
         instructions = QLabel(
             "💡 <b>Groq API MIỄN PHÍ</b> giúp AI thông minh hơn (Llama 3.3 70B):<br>"
@@ -4589,55 +4757,61 @@ class MainWindow(QWidget):
             "📖 <b>Hướng dẫn lấy API key:</b> Xem file <b>HUONG_DAN_GROQ_API.md</b>"
         )
         instructions.setWordWrap(True)
-        instructions.setStyleSheet("padding: 10px; background: #f0f0f0; border-radius: 5px;")
+        instructions.setStyleSheet(
+            "padding: 10px; background: #f0f0f0; border-radius: 5px;"
+        )
         groq_layout.addWidget(instructions)
-        
+
         # API Key Input
         api_key_layout = QHBoxLayout()
         api_key_layout.addWidget(QLabel("API Key:"))
-        
+
         self.groq_api_input = QLineEdit()
         self.groq_api_input.setPlaceholderText("Paste Groq API key vào đây (gsk_...)")
         self.groq_api_input.setEchoMode(QLineEdit.Password)
-        
+
         # Load existing key
-        if hasattr(self, 'ai_agent_right') and hasattr(self.ai_agent_right, 'groq_api_key'):
+        if hasattr(self, "ai_agent_right") and hasattr(
+            self.ai_agent_right, "groq_api_key"
+        ):
             self.groq_api_input.setText(self.ai_agent_right.groq_api_key)
-        
+
         api_key_layout.addWidget(self.groq_api_input)
-        
+
         # Show/Hide button
         self.show_key_btn = QPushButton("👁️ Hiện")
         self.show_key_btn.setFixedWidth(80)
         self.show_key_btn.clicked.connect(self.toggle_api_key_visibility)
         api_key_layout.addWidget(self.show_key_btn)
-        
+
         groq_layout.addLayout(api_key_layout)
-        
+
         # Buttons
         btn_layout = QHBoxLayout()
-        
+
         save_btn = QPushButton("💾 Lưu API Key")
-        save_btn.setStyleSheet("background: #4CAF50; color: white; padding: 8px; font-weight: bold;")
+        save_btn.setStyleSheet(
+            "background: #4CAF50; color: white; padding: 8px; font-weight: bold;"
+        )
         save_btn.clicked.connect(self.save_groq_api_key)
         btn_layout.addWidget(save_btn)
-        
+
         test_btn = QPushButton("🧪 Test Kết Nối")
         test_btn.clicked.connect(self.test_groq_connection)
         btn_layout.addWidget(test_btn)
-        
+
         clear_btn = QPushButton("🗑️ Xóa Key")
         clear_btn.clicked.connect(self.clear_groq_api_key)
         btn_layout.addWidget(clear_btn)
-        
+
         groq_layout.addLayout(btn_layout)
         groq_group.setLayout(groq_layout)
         layout.addWidget(groq_group)
-        
+
         # Offline Settings
         offline_group = QGroupBox("💻 Offline Mode (Phi3:mini + RAG)")
         offline_layout = QVBoxLayout()
-        
+
         offline_info = QLabel(
             "📌 Khi không có internet hoặc chưa cấu hình Groq API:<br>"
             "• AI tự động chuyển sang <b>Phi3:mini</b> (chạy local)<br>"
@@ -4645,54 +4819,58 @@ class MainWindow(QWidget):
             "• Cần cài Ollama: <b>ollama pull phi3:mini</b>"
         )
         offline_info.setWordWrap(True)
-        offline_info.setStyleSheet("padding: 10px; background: #fff3cd; border-radius: 5px;")
+        offline_info.setStyleSheet(
+            "padding: 10px; background: #fff3cd; border-radius: 5px;"
+        )
         offline_layout.addWidget(offline_info)
-        
+
         offline_group.setLayout(offline_layout)
         layout.addWidget(offline_group)
-        
+
         # Help
         help_group = QGroupBox("❓ Trợ Giúp")
         help_layout = QVBoxLayout()
-        
+
         help_btn = QPushButton("📖 Mở Hướng Dẫn Chi Tiết")
         help_btn.clicked.connect(self.open_groq_guide)
         help_layout.addWidget(help_btn)
-        
+
         help_group.setLayout(help_layout)
         layout.addWidget(help_group)
-        
+
         layout.addStretch()
         parent_widget.setLayout(layout)
-    
+
     def init_information_content(self, parent_widget):
         """Content for Information tab"""
         layout = QVBoxLayout()
         layout.setAlignment(Qt.AlignTop)
-        
+
         # Title
         title = QLabel("ℹ️ THÔNG TIN ỨNG DỤNG")
         title.setFont(QFont("Arial", 16, QFont.Bold))
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
-        
+
         # App info group
         info_group = QGroupBox("📱 Thông tin phiên bản")
         info_layout = QVBoxLayout()
         info_layout.setSpacing(15)
-        
+
         # App name with logo
         app_name_layout = QHBoxLayout()
         app_logo = QLabel("🛒")
         app_logo.setStyleSheet("font-size: 48px;")
         app_name_layout.addWidget(app_logo)
-        
-        app_name_text = QLabel("<b>ShopFlow</b><br><span style='font-size: 11pt; color: #666;'>Quản lý bán hàng thông minh</span>")
+
+        app_name_text = QLabel(
+            "<b>ShopFlow</b><br><span style='font-size: 11pt; color: #666;'>Quản lý bán hàng thông minh</span>"
+        )
         app_name_text.setStyleSheet("font-size: 18pt;")
         app_name_layout.addWidget(app_name_text)
         app_name_layout.addStretch()
         info_layout.addLayout(app_name_layout)
-        
+
         # Version info
         version_info = QLabel(
             "<table cellspacing='10' style='font-size: 11pt;'>"
@@ -4704,14 +4882,14 @@ class MainWindow(QWidget):
         )
         version_info.setTextFormat(Qt.RichText)
         info_layout.addWidget(version_info)
-        
+
         info_group.setLayout(info_layout)
         layout.addWidget(info_group)
-        
+
         # Features group
         features_group = QGroupBox("✨ Tính năng chính")
         features_layout = QVBoxLayout()
-        
+
         features_text = QLabel(
             "• Quản lý sản phẩm và tồn kho thông minh<br>"
             "• Hệ thống bán hàng đa loại giá (Lẻ, Buôn, VIP)<br>"
@@ -4721,16 +4899,18 @@ class MainWindow(QWidget):
             "• Sổ quỹ và lịch sử giao dịch đầy đủ"
         )
         features_text.setWordWrap(True)
-        features_text.setStyleSheet("padding: 10px; background: #f8f9fa; border-radius: 5px; line-height: 1.6;")
+        features_text.setStyleSheet(
+            "padding: 10px; background: #f8f9fa; border-radius: 5px; line-height: 1.6;"
+        )
         features_layout.addWidget(features_text)
-        
+
         features_group.setLayout(features_layout)
         layout.addWidget(features_group)
-        
+
         # Developer info
         dev_group = QGroupBox("👨‍💻 Thông tin nhà phát triển")
         dev_layout = QVBoxLayout()
-        
+
         dev_text = QLabel(
             "<b>Developed by:</b> ShopFlow Team<br>"
             "<b>Support:</b> support@shopflow.vn<br>"
@@ -4738,35 +4918,45 @@ class MainWindow(QWidget):
         )
         dev_text.setStyleSheet("padding: 10px;")
         dev_layout.addWidget(dev_text)
-        
+
         dev_group.setLayout(dev_layout)
         layout.addWidget(dev_group)
-        
+
         layout.addStretch()
         parent_widget.setLayout(layout)
-    
+
     def _update_ai_status_display(self):
         """Update AI status labels"""
-        if not hasattr(self, 'ai_agent_right') or not hasattr(self, 'ai_mode_label'):
+        if not hasattr(self, "ai_agent_right") or not hasattr(self, "ai_mode_label"):
             # Labels not created yet, skip
             return
-        
+
         mode = self.ai_agent_right.get_ai_mode()
         model = self.ai_agent_right.get_model_name()
         is_running = self.ai_agent_right.is_server_running()
-        
+
         if mode == "online":
-            self.ai_mode_label.setText("✅ <b>AI Mode:</b> <span style='color: green;'>ONLINE (Groq API)</span>")
+            self.ai_mode_label.setText(
+                "✅ <b>AI Mode:</b> <span style='color: green;'>ONLINE (Groq API)</span>"
+            )
             self.ai_model_label.setText(f"🚀 <b>Model:</b> {model}")
-            self.ai_status_label.setText("✅ <b>Status:</b> <span style='color: green;'>Connected</span>")
+            self.ai_status_label.setText(
+                "✅ <b>Status:</b> <span style='color: green;'>Connected</span>"
+            )
         else:
-            self.ai_mode_label.setText("💻 <b>AI Mode:</b> <span style='color: orange;'>OFFLINE (Local)</span>")
+            self.ai_mode_label.setText(
+                "💻 <b>AI Mode:</b> <span style='color: orange;'>OFFLINE (Local)</span>"
+            )
             self.ai_model_label.setText(f"🤖 <b>Model:</b> {model}")
             if is_running:
-                self.ai_status_label.setText("✅ <b>Status:</b> <span style='color: green;'>Running</span>")
+                self.ai_status_label.setText(
+                    "✅ <b>Status:</b> <span style='color: green;'>Running</span>"
+                )
             else:
-                self.ai_status_label.setText("❌ <b>Status:</b> <span style='color: red;'>Ollama Not Running</span>")
-    
+                self.ai_status_label.setText(
+                    "❌ <b>Status:</b> <span style='color: red;'>Ollama Not Running</span>"
+                )
+
     def toggle_api_key_visibility(self):
         """Show/Hide API key"""
         if self.groq_api_input.echoMode() == QLineEdit.Password:
@@ -4775,59 +4965,62 @@ class MainWindow(QWidget):
         else:
             self.groq_api_input.setEchoMode(QLineEdit.Password)
             self.show_key_btn.setText("👁️ Hiện")
-    
+
     def save_groq_api_key(self):
         """Save Groq API key"""
         api_key = self.groq_api_input.text().strip()
-        
+
         if not api_key:
             show_warning(self, "Cảnh báo", "Vui lòng nhập API key!")
             return
-        
+
         if not api_key.startswith("gsk_"):
-            show_warning(self, "Cảnh báo", "API key không hợp lệ! Key phải bắt đầu bằng 'gsk_'")
+            show_warning(
+                self, "Cảnh báo", "API key không hợp lệ! Key phải bắt đầu bằng 'gsk_'"
+            )
             return
-        
+
         # Save to both AI instances
         try:
-            if hasattr(self, 'ai_agent_right'):
+            if hasattr(self, "ai_agent_right"):
                 success, message = self.ai_agent_right.set_groq_api_key(api_key)
                 if success:
                     show_success(self, "Thành công", message)
                     self._update_ai_status_display()
                 else:
                     show_error(self, "Lỗi", message)
-            
-            if hasattr(self, 'ai_agent'):
+
+            if hasattr(self, "ai_agent"):
                 self.ai_agent.set_groq_api_key(api_key)
         except Exception as e:
             show_error(self, "Lỗi", f"Không thể lưu API key: {e}")
-    
+
     def test_groq_connection(self):
         """Test Groq API connection"""
         api_key = self.groq_api_input.text().strip()
-        
+
         if not api_key:
             show_warning(self, "Cảnh báo", "Vui lòng nhập API key trước!")
             return
-        
+
         try:
             from groq import Groq
+
             client = Groq(api_key=api_key)
-            
+
             # Test với câu hỏi đơn giản
             response = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",  # Updated model
                 messages=[{"role": "user", "content": "Hello"}],
-                max_tokens=10
+                max_tokens=10,
             )
-            
+
             show_success(
-                self, 
+                self,
                 "Kết nối thành công!",
                 "✅ Groq API hoạt động!\n\n"
                 "AI giờ sẽ thông minh gấp 35 lần!\n"
-                "Nhớ click 'Lưu API Key' để lưu cấu hình."
+                "Nhớ click 'Lưu API Key' để lưu cấu hình.",
             )
         except Exception as e:
             show_error(
@@ -4836,41 +5029,42 @@ class MainWindow(QWidget):
                 f"❌ Không thể kết nối Groq API:\n\n{str(e)}\n\n"
                 "Vui lòng kiểm tra:\n"
                 "• API key có đúng không?\n"
-                "• Internet có hoạt động không?"
+                "• Internet có hoạt động không?",
             )
-    
+
     def clear_groq_api_key(self):
         """Clear Groq API key"""
         reply = show_confirmation(
             self,
             "Xác nhận",
-            "Bạn có chắc muốn xóa API key?\n\nAI sẽ chuyển về offline mode."
+            "Bạn có chắc muốn xóa API key?\n\nAI sẽ chuyển về offline mode.",
         )
-        
+
         if reply:
             self.groq_api_input.clear()
-            
+
             # Clear from AI instances
-            if hasattr(self, 'ai_agent_right'):
+            if hasattr(self, "ai_agent_right"):
                 self.ai_agent_right.set_groq_api_key("")
-            if hasattr(self, 'ai_agent'):
+            if hasattr(self, "ai_agent"):
                 self.ai_agent.set_groq_api_key("")
-            
+
             self._update_ai_status_display()
             show_info(self, "Đã xóa", "API key đã được xóa. AI chuyển về offline mode.")
-    
+
     def open_groq_guide(self):
         """Open Groq API guide"""
         import os
+
         guide_path = "HUONG_DAN_GROQ_API.md"
-        
+
         if os.path.exists(guide_path):
             os.startfile(guide_path)
         else:
             show_warning(
                 self,
                 "Không tìm thấy file",
-                f"File hướng dẫn không tồn tại: {guide_path}"
+                f"File hướng dẫn không tồn tại: {guide_path}",
             )
 
     def init_tab_user(self):
@@ -7174,11 +7368,12 @@ class MainWindow(QWidget):
         """Đăng xuất và quay về màn hình login"""
         try:
             # Kiểm tra login_window còn tồn tại
-            if hasattr(self, 'login_window') and self.login_window is not None:
+            if hasattr(self, "login_window") and self.login_window is not None:
                 self.login_window.show()
             else:
                 # Nếu login_window bị destroy, tạo lại
                 from main_gui import LoginWindow
+
                 new_login = LoginWindow()
                 new_login.show()
             self.close()
@@ -7187,6 +7382,7 @@ class MainWindow(QWidget):
             # Đóng cửa sổ hiện tại và thoát
             self.close()
             import sys
+
             sys.exit(0)
 
     def load_sanpham(self):
@@ -8157,42 +8353,48 @@ if __name__ == "__main__":
     from PyQt5.QtCore import QTimer
 
     app = QApplication(sys.argv)
-    
+
     # Show splash screen
     splash = SplashScreen()
     splash.show()
-    
+
+    # Global reference to login window to prevent garbage collection
+    login_window = None
+
     # Simulate loading process
     def init_app():
+        global login_window
+        
         splash.update_status("Đang khởi tạo database...")
         QApplication.processEvents()
-        
+
         # Đảm bảo tạo các bảng DB mới (ví dụ ChenhLech) khi khởi động
         try:
             from db import khoi_tao_db
+
             khoi_tao_db()
         except Exception as e:
             print(f"DB init error: {e}")
-        
+
         splash.update_status("Đang tải giao diện...")
         QApplication.processEvents()
-        
+
         # Small delay for smooth loading
         import time
+
         time.sleep(0.5)
-        
+
         splash.update_status("Hoàn tất!")
         QApplication.processEvents()
-        
+
         # Show login window
-        win = DangNhap()
-        win.show()
-        
+        login_window = DangNhap()
+        login_window.show()
+
         # Close splash
         splash.close()
-    
+
     # Use QTimer to run init after splash is shown
     QTimer.singleShot(100, init_app)
-    
-    sys.exit(app.exec_())
 
+    sys.exit(app.exec_())
