@@ -289,6 +289,22 @@ def khoi_tao_db():
         """
     )
 
+    # Bảng feedback AI (Like/Dislike)
+    c.execute(
+        """
+        CREATE TABLE IF NOT EXISTS AI_Feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            conversation_id TEXT,
+            question TEXT,
+            answer TEXT,
+            is_helpful INTEGER,
+            timestamp TEXT,
+            FOREIGN KEY(user_id) REFERENCES Users(id)
+        )
+        """
+    )
+
     conn.commit()
     conn.close()
 

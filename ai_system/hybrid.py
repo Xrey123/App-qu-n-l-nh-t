@@ -1,5 +1,6 @@
 """
 Hybrid AI System - Groq API (online) + Phi3:mini + RAG (offline)
+Enhanced with LangChain Memory & Smart Prompts
 """
 
 import sqlite3
@@ -7,6 +8,7 @@ import json
 import time
 import os
 import re
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, Any, List
@@ -15,9 +17,10 @@ import requests
 
 class HybridAI:
     """
-    Hybrid AI với 2 modes:
+    Hybrid AI với 2 modes + LangChain enhancements:
     - Online: Groq API (Llama 3.3 70B) - Cực thông minh, cực nhanh
     - Offline: Phi3:mini + RAG - Tạm được, offline OK
+    - LangChain: Long-term memory, smart prompts, feedback learning
     """
 
     def __init__(
@@ -25,10 +28,12 @@ class HybridAI:
         db_path: str = "fapp.db",
         main_window=None,
         current_user_role: str = "staff",
+        current_user_id: int = None,
     ):
         self.db_path = db_path
         self.main_window = main_window
         self.current_user_role = current_user_role
+        self.current_user_id = current_user_id or 1
 
         # Load configs
         self.config = self._load_config()
@@ -38,7 +43,27 @@ class HybridAI:
         if not self.app_knowledge:
             self.app_knowledge = self._load_json("ai/app_knowledge.json", {})
 
-        # Conversation history (for context memory)
+        # LangChain Memory System
+        try:
+            from .langchain_memory import EnhancedMemory
+
+            self.enhanced_memory = EnhancedMemory(
+                user_id=str(self.current_user_id), user_role=self.current_user_role
+            )
+        except Exception as e:
+            print(f"⚠️ LangChain memory disabled: {e}")
+            self.enhanced_memory = None
+
+        # Smart Prompt System
+        try:
+            from .prompt_manager import PromptManager
+
+            self.prompt_manager = PromptManager()
+        except Exception as e:
+            print(f"⚠️ Prompt manager disabled: {e}")
+            self.prompt_manager = None
+
+        # Conversation history (legacy - for fallback)
         self.conversation_history = []
         self.max_history = 10  # Keep last 10 Q&A pairs
 
@@ -51,12 +76,12 @@ class HybridAI:
             self.model_name = (
                 "llama-3.3-70b-versatile"  # Updated: llama-3.1 decommissioned
             )
-            print("✅ AI Mode: ONLINE (Groq API - Llama 3.3 70B)")
+            print("✅ AI Mode: ONLINE (Groq API - Llama 3.3 70B + LangChain)")
         else:
             self.ai_mode = "offline"
             self.ollama_url = "http://localhost:11434/api/generate"
             self.model_name = "phi3:mini"
-            print("⚠️ AI Mode: OFFLINE (Phi3:mini + RAG)")
+            print("⚠️ AI Mode: OFFLINE (Phi3:mini + RAG + LangChain)")
 
         # Cache
         self.query_cache: Dict[str, tuple] = {}
@@ -200,7 +225,7 @@ class HybridAI:
         return ""
 
     def _build_context(self) -> str:
-        """Build context from app knowledge"""
+        """Build context from app knowledge + smart prompts + user memory"""
 
         # Load app knowledge from JSON
         app_info = self.app_knowledge.get("app_info", {})
@@ -220,8 +245,21 @@ class HybridAI:
 - 📊 Báo cáo: Doanh thu, lợi nhuận, tổng kết ca
 - ⚙️ Cài đặt: Groq API (online AI mode)"""
 
+        # Get smart prompt based on user role & experience
+        smart_prompt = ""
+        if self.prompt_manager and self.enhanced_memory:
+            experience_level = self.enhanced_memory.get_experience_level()
+            smart_prompt = self.prompt_manager.get_prompt(
+                self.current_user_role, experience_level
+            )
+
+        # Get user memory context
+        user_context = ""
+        if self.enhanced_memory:
+            user_context = self.enhanced_memory.get_context()
+
         # Build rich context
-        context = f"""Bạn là AI trợ lý của HỆ THỐNG QUẢN LÝ CỬA HÀNG NHỚT.
+        context = f"""{smart_prompt}
 
 📱 THÔNG TIN APP:
 - Tên: {app_info.get('name', 'Hệ thống quản lý cửa hàng nhớt')}
@@ -244,6 +282,8 @@ class HybridAI:
 ⚠️ LƯU Ý QUAN TRỌNG:
 {important_note}
 
+{user_context}
+
 🚫 QUY TẮC BẢO MẬT:
 1. ❌ KHÔNG được đề cập code Python (.py files)
 2. ❌ KHÔNG được nói "tôi không biết model nào" - LUÔN trả lời thật!
@@ -252,21 +292,18 @@ class HybridAI:
 5. ❌ KHÔNG được nói về bảng nào, cột nào trong database
 6. ❌ KHÔNG được hướng dẫn hack, truy cập trái phép, hoặc kỹ thuật hệ thống
 
-✅ BẠN PHẢI:
-1. ✅ Trả lời DỰA VÀO APP NÀY (fapp.db, main_gui.py, Python)
-2. ✅ Giải thích ĐÚNG CÁCH TÍNH GIÁ trong app
-3. ✅ Hướng dẫn ĐÚNG WORKFLOW (Nhận hàng → Bán hàng → Tổng kết ca)
-4. ✅ Trả lời NGẮN GỌN, THÂN THIỆN, ĐÚNG TRỌNG TÂM
-5. ✅ Chỉ hướng dẫn SỬ DỤNG app, KHÔNG nói về cấu trúc kỹ thuật
-
 Nếu hỏi về model AI: Trả lời thật {"🚀 Groq API - Llama 3.3 70B" if self.use_groq else "💻 Phi3:mini offline"}"""
 
         return context
 
-    def ask(self, question: str) -> str:
+    def ask(self, question: str) -> tuple[str, str]:
         """
         Main method - Route to online or offline
+        Returns: (answer, conversation_id) for feedback
         """
+        # Generate conversation ID for feedback tracking
+        conversation_id = str(uuid.uuid4())
+
         # Normalize question
         question = self._normalize_question(question)
         q_lower = question.lower()
@@ -274,18 +311,23 @@ Nếu hỏi về model AI: Trả lời thật {"🚀 Groq API - Llama 3.3 70B" i
         # Check which AI is being used
         if "model nào" in q_lower or "ai nào" in q_lower:
             if self.use_groq:
-                return f"🚀 Tôi đang dùng **Groq API - Llama 3.3 70B** (online mode). Cực thông minh và cực nhanh! 😊"
+                answer = f"🚀 Tôi đang dùng **Groq API - Llama 3.3 70B** (online mode). Cực thông minh và cực nhanh! 😊"
             else:
-                return f"💻 Tôi đang dùng **Phi3:mini** (offline mode). Nếu muốn AI thông minh hơn, hãy cấu hình Groq API trong Settings!"
+                answer = f"💻 Tôi đang dùng **Phi3:mini** (offline mode). Nếu muốn AI thông minh hơn, hãy cấu hình Groq API trong Settings!"
+            self._save_conversation(question, answer, conversation_id)
+            return answer, conversation_id
 
         # ✅ BƯỚC 1: CHECK PERMISSION
         permission_response = self._check_permission(question)
         if permission_response:
-            return permission_response
+            self._save_conversation(question, permission_response, conversation_id)
+            return permission_response, conversation_id
 
         # ✅ BƯỚC 2: FILTER IT-SENSITIVE INFO
         if self._is_it_sensitive_question(question):
-            return "🔒 Xin lỗi, tôi không thể cung cấp thông tin về kỹ thuật hệ thống. Hãy hỏi về cách sử dụng các chức năng trong app nhé! 😊"
+            answer = "🔒 Xin lỗi, tôi không thể cung cấp thông tin về kỹ thuật hệ thống. Hãy hỏi về cách sử dụng các chức năng trong app nhé! 😊"
+            self._save_conversation(question, answer, conversation_id)
+            return answer, conversation_id
 
         # Try DB query first (for data questions)
         data_keywords = ["bao nhiêu", "còn", "tồn", "danh sách", "liệt kê"]
@@ -294,7 +336,9 @@ Nếu hỏi về model AI: Trả lời thật {"🚀 Groq API - Llama 3.3 70B" i
             if sql:
                 result = self._query_db(sql)
                 if result:
-                    return self._format_db_result(result, question)
+                    answer = self._format_db_result(result, question)
+                    self._save_conversation(question, answer, conversation_id)
+                    return answer, conversation_id
 
         # Skip app_knowledge search for logic/explanation questions
         # Let AI answer with rich context instead
@@ -317,7 +361,8 @@ Nếu hỏi về model AI: Trả lời thật {"🚀 Groq API - Llama 3.3 70B" i
                 if app_answer:
                     # ✅ BƯỚC 3: AUTO SWITCH TAB
                     self._auto_switch_tab(question)
-                    return app_answer
+                    self._save_conversation(question, app_answer, conversation_id)
+                    return app_answer, conversation_id
 
         # Ask AI (online or offline) - This has rich context about pricing
         context = self._build_context()
@@ -330,9 +375,70 @@ Nếu hỏi về model AI: Trả lời thật {"🚀 Groq API - Llama 3.3 70B" i
         if answer:
             # ✅ BƯỚC 4: AUTO SWITCH TAB for AI answers too
             self._auto_switch_tab(question)
-            return answer
+            self._save_conversation(question, answer, conversation_id)
+            return answer, conversation_id
 
-        return "Hãy thử hỏi chi tiết hơn về tabs, workflows, sản phẩm, hoặc báo cáo nhé! 😊"
+        answer = "Hãy thử hỏi chi tiết hơn về tabs, workflows, sản phẩm, hoặc báo cáo nhé! 😊"
+        self._save_conversation(question, answer, conversation_id)
+        return answer, conversation_id
+
+    def _save_conversation(self, question: str, answer: str, conversation_id: str):
+        """Lưu conversation vào LangChain memory và database"""
+        # Save to LangChain memory (long-term)
+        if self.enhanced_memory:
+            try:
+                self.enhanced_memory.save_conversation(question, answer)
+            except Exception as e:
+                print(f"⚠️ Failed to save to LangChain memory: {e}")
+
+        # Save to legacy conversation history (fallback)
+        self.conversation_history.append({"question": question, "answer": answer})
+        if len(self.conversation_history) > self.max_history:
+            self.conversation_history = self.conversation_history[-self.max_history :]
+
+        # Save to database for feedback tracking
+        try:
+            conn = sqlite3.connect(self.db_path)
+            c = conn.cursor()
+            c.execute(
+                """INSERT INTO AI_Feedback 
+                   (user_id, conversation_id, question, answer, is_helpful, timestamp)
+                   VALUES (?, ?, ?, ?, NULL, ?)""",
+                (
+                    self.current_user_id,
+                    conversation_id,
+                    question,
+                    answer,
+                    datetime.now().isoformat(),
+                ),
+            )
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"⚠️ Failed to save feedback record: {e}")
+
+    def feedback(self, conversation_id: str, is_helpful: bool):
+        """
+        Lưu feedback từ user (👍 hoặc 👎)
+
+        Args:
+            conversation_id: ID của conversation
+            is_helpful: True = 👍, False = 👎
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            c = conn.cursor()
+            c.execute(
+                """UPDATE AI_Feedback 
+                   SET is_helpful = ?
+                   WHERE conversation_id = ?""",
+                (1 if is_helpful else 0, conversation_id),
+            )
+            conn.commit()
+            conn.close()
+            print(f"✅ Feedback saved: {'👍' if is_helpful else '👎'}")
+        except Exception as e:
+            print(f"⚠️ Failed to save feedback: {e}")
 
     def _load_json(self, path: str, default: Any) -> Any:
         try:

@@ -949,7 +949,15 @@ class MainWindow(QWidget):
             QApplication.processEvents()
 
             # Gọi AI (role đã được set trong __init__)
-            response = self.ai_agent_right.ask(message)
+            # LangChain version returns (answer, conversation_id)
+            result = self.ai_agent_right.ask(message)
+            
+            # Handle both old (string) and new (tuple) return format
+            if isinstance(result, tuple):
+                response, conversation_id = result
+            else:
+                response = result
+                conversation_id = None
 
             # Remove thinking message
             cursor = self.ai_chat_display.textCursor()
@@ -973,6 +981,10 @@ class MainWindow(QWidget):
             )  # Bold
 
             self.ai_chat_display.append(f"<b>🤖 AI:</b><br>{formatted_response}<br>")
+            
+            # Add feedback buttons if conversation_id available
+            if conversation_id:
+                self.add_feedback_buttons(conversation_id)
 
         except Exception as e:
             self.ai_chat_display.append(f"<b>❌ Lỗi:</b> {e}<br>")
@@ -982,14 +994,120 @@ class MainWindow(QWidget):
             self.ai_chat_display.verticalScrollBar().maximum()
         )
 
+    def add_feedback_buttons(self, conversation_id):
+        """Thêm nút 👍👎 feedback sau AI response"""
+        # Create a container widget for buttons
+        feedback_widget = QWidget()
+        feedback_layout = QHBoxLayout()
+        feedback_layout.setContentsMargins(0, 5, 0, 5)
+        feedback_widget.setLayout(feedback_layout)
+        
+        feedback_layout.addWidget(QLabel("<i>Câu trả lời này hữu ích không?</i>"))
+        
+        # Like button
+        btn_like = QPushButton("👍")
+        btn_like.setFixedSize(35, 35)
+        btn_like.setStyleSheet("""
+            QPushButton {
+                background: #2ecc71;
+                color: white;
+                font-size: 16pt;
+                border-radius: 17px;
+                border: none;
+            }
+            QPushButton:hover {
+                background: #27ae60;
+            }
+            QPushButton:pressed {
+                background: #1e8449;
+            }
+        """)
+        btn_like.clicked.connect(lambda: self.send_feedback(conversation_id, True, btn_like, btn_dislike))
+        btn_like.setToolTip("Hữu ích")
+        feedback_layout.addWidget(btn_like)
+        
+        # Dislike button
+        btn_dislike = QPushButton("👎")
+        btn_dislike.setFixedSize(35, 35)
+        btn_dislike.setStyleSheet("""
+            QPushButton {
+                background: #e74c3c;
+                color: white;
+                font-size: 16pt;
+                border-radius: 17px;
+                border: none;
+            }
+            QPushButton:hover {
+                background: #c0392b;
+            }
+            QPushButton:pressed {
+                background: #a93226;
+            }
+        """)
+        btn_dislike.clicked.connect(lambda: self.send_feedback(conversation_id, False, btn_like, btn_dislike))
+        btn_dislike.setToolTip("Không hữu ích")
+        feedback_layout.addWidget(btn_dislike)
+        
+        feedback_layout.addStretch()
+        
+        # Add widget to chat display
+        self.ai_chat_display.append("")  # Add some space
+        cursor = self.ai_chat_display.textCursor()
+        cursor.movePosition(cursor.End)
+        self.ai_chat_display.setTextCursor(cursor)
+        
+    def send_feedback(self, conversation_id, is_helpful, btn_like, btn_dislike):
+        """Gửi feedback và disable buttons"""
+        try:
+            # Send feedback to AI
+            if hasattr(self.ai_agent_right, 'feedback'):
+                self.ai_agent_right.feedback(conversation_id, is_helpful)
+            
+            # Disable both buttons after feedback
+            btn_like.setEnabled(False)
+            btn_dislike.setEnabled(False)
+            
+            # Update style to show selected
+            if is_helpful:
+                btn_like.setStyleSheet("""
+                    QPushButton {
+                        background: #27ae60;
+                        color: white;
+                        font-size: 16pt;
+                        border-radius: 17px;
+                        border: 3px solid #1e8449;
+                    }
+                """)
+                self.ai_chat_display.append("<i style='color: #27ae60;'>✓ Cảm ơn phản hồi của bạn!</i><br>")
+            else:
+                btn_dislike.setStyleSheet("""
+                    QPushButton {
+                        background: #c0392b;
+                        color: white;
+                        font-size: 16pt;
+                        border-radius: 17px;
+                        border: 3px solid #a93226;
+                    }
+                """)
+                self.ai_chat_display.append("<i style='color: #c0392b;'>✓ Cảm ơn phản hồi! AI sẽ cải thiện.</i><br>")
+            
+        except Exception as e:
+            print(f"Failed to send feedback: {e}")
+
     def clear_ai_history_right(self):
         """Xóa lịch sử chat bên phải"""
         try:
-            # Clear conversation history in AI
+            # Clear conversation history in AI (legacy)
             if hasattr(self, "ai_agent_right") and hasattr(
                 self.ai_agent_right, "conversation_history"
             ):
                 self.ai_agent_right.conversation_history = []
+            
+            # Clear LangChain memory
+            if hasattr(self, "ai_agent_right") and hasattr(
+                self.ai_agent_right, "enhanced_memory"
+            ) and self.ai_agent_right.enhanced_memory:
+                self.ai_agent_right.enhanced_memory.clear_memory()
 
             # Clear display
             self.ai_chat_display.clear()
