@@ -1,6 +1,0 @@
-{
-  "groq_api_key": "YOUR_GROQ_API_KEY_HERE",
-  "ollama_url": "http://localhost:11434",
-  "offline_model": "phi3:mini",
-  "use_rag": true
-}

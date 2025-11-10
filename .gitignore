@@ -18,6 +18,9 @@ env/
 # Database
 *.db
 
+# AI Config (chứa API key - KHÔNG push lên Git)
+ai/config.json
+
 # IDE
 .vscode/
 .idea/
