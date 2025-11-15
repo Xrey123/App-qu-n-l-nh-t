@@ -197,7 +197,32 @@ class HybridAI:
             print(f"⚠️ Groq API error: {e}. Switching to offline mode...")
             self.use_groq = False
             self.ai_mode = "offline"
-            return self._ask_offline(question, context)
+
+            # Try offline mode first
+            offline_answer = self._ask_offline(question, context)
+            if offline_answer:
+                return offline_answer
+
+            # If offline also fails, try to answer from knowledge base
+            # Check for common questions
+            q_lower = question.lower()
+            if any(
+                kw in q_lower
+                for kw in ["bạn là ai", "bạn là gì", "tên bạn", "giới thiệu"]
+            ):
+                return """Tôi là AI trợ lý của **HỆ THỐNG QUẢN LÝ CỬA HÀNG NHỚT**.
+
+**Tôi có thể giúp bạn:**
+- 📱 Hướng dẫn sử dụng 14 tabs trong app
+- 🛢️ Giải thích cách tính giá (lẻ/buôn/VIP)
+- 📊 Hướng dẫn workflow: Nhận hàng → Bán hàng → Xuất hóa đơn
+- 💡 Trả lời câu hỏi về chức năng app
+- 🔍 Tra cứu thông tin sản phẩm, kho, hóa đơn
+
+**Lưu ý:** Hiện tại AI đang ở chế độ offline do Groq API đạt giới hạn. Hãy hỏi tôi về tabs, workflows, hoặc chức năng trong app! 😊"""
+
+            # Return empty to continue normal flow
+            return ""
 
     def _ask_offline(self, question: str, context: str = "") -> str:
         """Ask Ollama Phi3:mini (offline)"""
@@ -225,25 +250,13 @@ class HybridAI:
         return ""
 
     def _build_context(self) -> str:
-        """Build context from app knowledge + smart prompts + user memory"""
-
+        """
+        Build context from app knowledge, smart prompts, user memory, and auto-extracted app logic/workflow.
+        Chỉ trả lời kiểu hướng dẫn sử dụng app, không trả lời về IT/kỹ thuật.
+        """
         # Load app knowledge from JSON
         app_info = self.app_knowledge.get("app_info", {})
         pricing_info = self.app_knowledge.get("pricing", {})
-
-        # Get tabs information dynamically from JSON
-        total_tabs = app_info.get('tổng_số_tabs', 14)
-        tabs_list = app_info.get('danh_sách_tabs', [])
-        important_note = app_info.get('lưu_ý_quan_trọng', '')
-
-        # Build tabs list string
-        tabs_string = '\n'.join(tabs_list) if tabs_list else """- 🏠 Trang chủ: Dashboard, thống kê
-- 📦 Sản phẩm: Quản lý danh sách nhớt (Admin/Accountant)
-- 🛒 Ca bán hàng: Nhận hàng (kiểm kê) + Bán hàng
-- 📄 Hóa đơn: Xuất hóa đơn, in PDF
-- 👥 Khách hàng: Quản lý khách, check VIP
-- 📊 Báo cáo: Doanh thu, lợi nhuận, tổng kết ca
-- ⚙️ Cài đặt: Groq API (online AI mode)"""
 
         # Get smart prompt based on user role & experience
         smart_prompt = ""
@@ -258,42 +271,64 @@ class HybridAI:
         if self.enhanced_memory:
             user_context = self.enhanced_memory.get_context()
 
+        # Auto extract tab/workflow/database info (chỉ mô tả, không code)
+        tab_descriptions = []
+        try:
+            from pathlib import Path
+            import re
+            # Đọc file main_gui.py để lấy tên tab và mô tả chức năng
+            main_gui_path = Path(__file__).parent.parent / "main_gui.py"
+            if main_gui_path.exists():
+                with open(main_gui_path, "r", encoding="utf-8") as f:
+                    code = f.read()
+                # Tìm các dòng addTab và mô tả
+                tab_matches = re.findall(r'addTab\(.*?,\s*"([^"]+)"\)', code)
+                for tab in tab_matches:
+                    tab_descriptions.append(f"- {tab}")
+        except Exception as e:
+            tab_descriptions.append(f"(Không thể tự động đọc tab: {e})")
+
+        # Auto extract database table names (chỉ tên bảng, không schema)
+        db_tables = []
+        try:
+            db_path = Path(__file__).parent.parent / "fapp.db"
+            import sqlite3
+            if db_path.exists():
+                conn = sqlite3.connect(str(db_path))
+                c = conn.cursor()
+                c.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                db_tables = [row[0] for row in c.fetchall()]
+                conn.close()
+        except Exception as e:
+            db_tables.append(f"(Không thể đọc database: {e})")
+
         # Build rich context
-        context = f"""{smart_prompt}
+        context = f"""
+{smart_prompt}
 
-📱 THÔNG TIN APP:
+THÔNG TIN APP:
 - Tên: {app_info.get('name', 'Hệ thống quản lý cửa hàng nhớt')}
-- Công nghệ: {app_info.get('main_file', 'PyQt5 desktop app (main_gui.py)')}
-- Database: {app_info.get('database', 'fapp.db (SQLite) - 13 bảng')}
-- Launcher: {app_info.get('launcher', 'start.py hoặc START_APP_SIMPLE.bat')}
+- Database: fapp.db (SQLite)
+- Các bảng dữ liệu: {', '.join(db_tables) if db_tables else '(Không có dữ liệu)'}
 
-🛢️ SẢN PHẨM:
-- Các loại nhớt: {app_info.get('sản phẩm', 'PLC KOMAT, PLC RACER, PLC CARTER, PCL GEAR OIL, PLC-AW HYDROIL')}
-- Quản lý: Tồn kho, giá lẻ, giá buôn, giá VIP
+🗂️ CÁC TAB CHỨC NĂNG:
+{chr(10).join(tab_descriptions) if tab_descriptions else '(Không có dữ liệu)'}
 
-💰 CÁCH TÍNH GIÁ TRONG APP:
-{pricing_info.get('Giá lẻ', {}).get('mô tả', '- Giá lẻ: Áp dụng khi mua < ngưỡng buôn')}
-{pricing_info.get('Giá buôn', {}).get('mô tả', '- Giá buôn: Áp dụng khi SL >= ngưỡng buôn (ví dụ: >=5 thùng)')}
-{pricing_info.get('Giá VIP', {}).get('mô tả', '- Giá VIP: Dành cho khách hàng VIP (check trong database)')}
-
-📊 DANH SÁCH {total_tabs} TABS TRONG APP:
-{tabs_string}
-
-⚠️ LƯU Ý QUAN TRỌNG:
-{important_note}
+💡 Mỗi tab có workflow và chức năng riêng, bạn có thể hỏi chi tiết về từng tab để được hướng dẫn sử dụng.
 
 {user_context}
 
-🚫 QUY TẮC BẢO MẬT:
-1. ❌ KHÔNG được đề cập code Python (.py files)
-2. ❌ KHÔNG được nói "tôi không biết model nào" - LUÔN trả lời thật!
-3. ❌ KHÔNG được trả lời chung chung như ChatGPT
-4. ❌ KHÔNG được tiết lộ thông tin IT: database schema, SQL queries, file paths, API keys, system architecture
-5. ❌ KHÔNG được nói về bảng nào, cột nào trong database
-6. ❌ KHÔNG được hướng dẫn hack, truy cập trái phép, hoặc kỹ thuật hệ thống
+📊 TRUY VẤN DỮ LIỆU (chỉ khi user yêu cầu, theo quyền):
+- Nếu user hỏi về số nợ, sổ quỹ, báo cáo, sản phẩm... AI sẽ truy vấn database và trả về kết quả thật, KHÔNG tự bịa số liệu.
+- Nếu user không đủ quyền, AI sẽ thông báo rõ ràng.
 
-Nếu hỏi về model AI: Trả lời thật {"🚀 Groq API - Llama 3.3 70B" if self.use_groq else "💻 Phi3:mini offline"}"""
+⚠️ LƯU Ý:
+- KHÔNG trả lời về code, kỹ thuật, cấu trúc IT, schema, file, API, SQL.
+- Chỉ trả lời như một người hướng dẫn sử dụng app, theo đúng quyền user.
+- KHÔNG tự bịa số liệu, chỉ trả về dữ liệu thật hoặc mô tả workflow.
 
+Nếu hỏi về model AI: Trả lời thật {"🚀 Groq API - Llama 3.3 70B" if self.use_groq else "💻 Phi3:mini offline"}
+"""
         return context
 
     def ask(self, question: str) -> tuple[str, str]:
@@ -329,6 +364,12 @@ Nếu hỏi về model AI: Trả lời thật {"🚀 Groq API - Llama 3.3 70B" i
             self._save_conversation(question, answer, conversation_id)
             return answer, conversation_id
 
+        # ✅ BƯỚC 2.5: CHECK IF USER WANTS REAL DATABASE DATA
+        action_result = self._try_execute_action(question)
+        if action_result:
+            self._save_conversation(question, action_result, conversation_id)
+            return action_result, conversation_id
+
         # Try DB query first (for data questions)
         data_keywords = ["bao nhiêu", "còn", "tồn", "danh sách", "liệt kê"]
         if any(kw in q_lower for kw in data_keywords):
@@ -358,8 +399,30 @@ Nếu hỏi về model AI: Trả lời thật {"🚀 Groq API - Llama 3.3 70B" i
             tab_keywords = ["tab", "mở", "vào đâu", "nút", "button", "click"]
             if any(kw in q_lower for kw in tab_keywords):
                 app_answer = self._search_app_knowledge(question)
+                # Thử chuyển tab và lấy thông tin tab thực tế
+                tab_map = (
+                    getattr(self.main_window, "tab_map", {}) if self.main_window else {}
+                )
+                found = None
+                for key, idx in tab_map.items():
+                    if key in q_lower:
+                        tab_name = (
+                            self.main_window.tabs.tabText(idx)
+                            if self.main_window
+                            else key
+                        )
+                        # Lấy chức năng tab từ app_knowledge nếu có
+                        tab_info = (
+                            self.app_knowledge.get("tabs", {}).get(tab_name) or {}
+                        )
+                        func = tab_info.get("chức năng", "Chưa có mô tả chức năng.")
+                        app_answer = f"✅ Đã chuyển đến tab **{tab_name}**\n\n🔹 Chức năng: {func}"
+                        found = True
+                        self._auto_switch_tab(question)
+                        self._save_conversation(question, app_answer, conversation_id)
+                        return app_answer, conversation_id
+                # Nếu không khớp alias, fallback app_knowledge như cũ
                 if app_answer:
-                    # ✅ BƯỚC 3: AUTO SWITCH TAB
                     self._auto_switch_tab(question)
                     self._save_conversation(question, app_answer, conversation_id)
                     return app_answer, conversation_id
@@ -377,6 +440,40 @@ Nếu hỏi về model AI: Trả lời thật {"🚀 Groq API - Llama 3.3 70B" i
             self._auto_switch_tab(question)
             self._save_conversation(question, answer, conversation_id)
             return answer, conversation_id
+
+        # ✅ LAST RESORT: Try to answer from app_knowledge for general questions
+        intro_keywords = [
+            "bạn là ai",
+            "bạn là gì",
+            "giới thiệu",
+            "tên bạn",
+            "bạn làm gì",
+        ]
+        if any(kw in q_lower for kw in intro_keywords):
+            answer = """Tôi là AI trợ lý của **HỆ THỐNG QUẢN LÝ CỬA HÀNG NHỚT**.
+
+**Tôi có thể giúp bạn:**
+- 📱 Hướng dẫn sử dụng 14 tabs trong app
+- 🛢️ Giải thích cách tính giá (lẻ/buôn/VIP)  
+- 📊 Hướng dẫn workflow: Nhận hàng → Bán hàng → Xuất hóa đơn
+- 💡 Trả lời câu hỏi về chức năng app
+- 🔍 Tra cứu thông tin sản phẩm, kho, hóa đơn
+
+**Hỏi tôi ngay:**
+- "liệt kê các tab"
+- "cách tính giá buôn"
+- "hướng dẫn bán hàng"
+- "tab nào dùng để xuất hóa đơn"
+
+⚠️ **Lưu ý:** AI đang offline (Groq API rate limit). Tôi vẫn có thể trả lời từ knowledge base! 😊"""
+            self._save_conversation(question, answer, conversation_id)
+            return answer, conversation_id
+
+        # Try searching app_knowledge one more time (broader search)
+        app_answer = self._search_app_knowledge(question)
+        if app_answer:
+            self._save_conversation(question, app_answer, conversation_id)
+            return app_answer, conversation_id
 
         answer = "Hãy thử hỏi chi tiết hơn về tabs, workflows, sản phẩm, hoặc báo cáo nhé! 😊"
         self._save_conversation(question, answer, conversation_id)
@@ -648,44 +745,108 @@ Nếu hỏi về model AI: Trả lời thật {"🚀 Groq API - Llama 3.3 70B" i
         return f"Kết quả: {result[:3]}"
 
     def _search_app_knowledge(self, question: str) -> Optional[str]:
-        """Search app knowledge with sub-tabs support"""
+        # Nếu user hỏi về việc nên làm gì đầu tiên khi sử dụng app
         q_lower = question.lower()
-
         # Normalize Vietnamese (bỏ → bổ, etc.)
         q_normalized = q_lower.replace("bổ", "bỏ").replace("xuất bỗ", "xuất bỏ")
+        first_steps_keywords = [
+            "làm gì đầu tiên",
+            "bước đầu",
+            "bắt đầu sử dụng",
+            "hướng dẫn bắt đầu",
+            "mới sử dụng",
+            "cần làm gì",
+            "khởi tạo",
+            "setup ban đầu",
+            "lần đầu sử dụng",
+            "lần đầu mình sử dụng",
+            "lần đầu dùng app",
+            "bắt đầu làm gì",
+        ]
+        if any(kw in q_normalized for kw in first_steps_keywords):
+            return (
+                "Khi mới sử dụng ứng dụng, bạn cần thực hiện các bước sau:<br>\n"
+                "1. <b>Thêm danh sách sản phẩm</b> tại cửa hàng (tên, số lượng, các loại giá).<br>\n"
+                "2. Có thể <b>thêm nhanh bằng import file Excel</b> đi kèm để tiết kiệm thời gian.<br>\n"
+                "3. <b>Nhập thông số đầu kỳ</b> để khởi tạo tồn kho ban đầu.<br>\n"
+                "4. Kiểm tra <b>số nợ các user</b> và những sản phẩm chưa xuất với loại giá nào.<br>\n"
+                "5. Sau khi hoàn tất các bước trên, bạn có thể bắt đầu bán hàng, xuất hóa đơn và quản lý kho.<br>\n"
+                "💡 Nếu cần hướng dẫn chi tiết về từng bước, hãy hỏi tôi nhé!"
+            )
 
-        # Search in app_knowledge
-        for tab_name, tab_info in self.app_knowledge.get("tabs", {}).items():
-            tab_name_lower = tab_name.lower().replace("bổ", "bỏ")
-            keywords = [
-                kw.lower().replace("bổ", "bỏ") for kw in tab_info.get("keywords", [])
-            ]
-
-            if tab_name_lower in q_normalized or any(
-                kw in q_normalized for kw in keywords
-            ):
-                # Check if tab has sub_tabs
+        # ✅ XỬ LÝ CÂU HỎI VỀ TỔNG SỐ TABS (CẢ TAB CON)
+        list_all_keywords = [
+            "liệt kê",
+            "có bao nhiêu",
+            "tất cả",
+            "danh sách",
+            "các tab",
+        ]
+        if (
+            any(kw in q_normalized for kw in list_all_keywords)
+            and "tab" in q_normalized
+        ):
+            result = ""
+            # Ưu tiên lấy số tab thực tế từ MainWindow nếu có
+            if self.main_window and hasattr(self.main_window, "tabs"):
+                tab_widget = self.main_window.tabs
+                tab_count = tab_widget.count()
+                result += f"📊 **App có {tab_count} tabs chính (thực tế trên giao diện):**\n\n"
+                for i in range(tab_count):
+                    tab_name = tab_widget.tabText(i)
+                    result += f"{i+1}. {tab_name}"
+                    # Nếu là tab Ca bán hàng, liệt kê tab con
+                    if "ca bán hàng" in tab_name.lower() and hasattr(
+                        self.main_window, "tab_ca_banhang_tabs"
+                    ):
+                        sub_widget = self.main_window.tab_ca_banhang_tabs
+                        sub_count = sub_widget.count()
+                        sub_tabs = [sub_widget.tabText(j) for j in range(sub_count)]
+                        result += f"\n   • Tab con: {', '.join(sub_tabs)}"
+                    result += "\n"
+                result += (
+                    "\n💡 **Tip:** Hỏi tôi chi tiết về tab nào để biết cách sử dụng!"
+                )
+                return result
+            # Nếu không có MainWindow, fallback sang app_knowledge
+            tabs_dict = self.app_knowledge.get("tabs", {})
+            tab_count = len(tabs_dict)
+            result += f"📊 **App có {tab_count} tabs chính (theo dữ liệu):**\n\n"
+            for i, (tab_name, tab_info) in enumerate(tabs_dict.items(), 1):
+                tab_func = tab_info.get("chức năng", "")
+                quyền = tab_info.get("quyền", "Tất cả")
+                result += f"{i}. **{tab_name}** ({quyền})\n   → {tab_func}"
                 if "sub_tabs" in tab_info:
-                    # Tab has sub-tabs, ask which one
-                    sub_tab_names = list(tab_info["sub_tabs"].keys())
-                    result = f"📌 **Tab {tab_name}**\n\n"
-                    result += f"🔹 Chức năng chung: {tab_info.get('chức năng', '')}\n\n"
-                    result += f"Tab này có **{len(sub_tab_names)} sub-tabs:**\n"
-                    for i, sub_name in enumerate(sub_tab_names, 1):
-                        sub_func = tab_info["sub_tabs"][sub_name].get("chức năng", "")
-                        result += f"{i}. **{sub_name}**: {sub_func}\n"
-                    result += f"\n❓ Bạn muốn tôi hướng dẫn sub-tab nào?"
-                    return result
-                else:
-                    # Normal tab without sub-tabs
-                    result = f"📌 **Tab {tab_name}**\n\n"
-                    result += f"🔹 Chức năng: {tab_info.get('chức năng', '')}\n"
+                    sub_tabs = tab_info["sub_tabs"]
+                    result += f"\n   • Tab con: {', '.join(sub_tabs.keys())}"
+                result += "\n"
+            result += "💡 **Tip:** Hỏi tôi chi tiết về tab nào để biết cách sử dụng!"
+            return result
 
-                    # Add workflow if exists
-                    if "workflow" in tab_info:
-                        result += f"\n📝 Cách sử dụng:\n{tab_info['workflow']}\n"
-
-                    return result
+        # Nếu người dùng hỏi về chức năng các tab, liệt kê theo giao diện thực tế
+        func_keywords = ["chức năng", "tác dụng", "dùng để", "công dụng", "mục đích"]
+        if any(kw in q_normalized for kw in func_keywords) and "tab" in q_normalized:
+            # Lấy danh sách tab thực tế từ MainWindow nếu có
+            if self.main_window and hasattr(self.main_window, "tabs"):
+                tab_widget = self.main_window.tabs
+                tab_count = tab_widget.count()
+                result = f"📊 **Chức năng của {tab_count} tabs trên giao diện:**\n\n"
+                tabs_dict = self.app_knowledge.get("tabs", {})
+                for i in range(tab_count):
+                    tab_name = tab_widget.tabText(i)
+                    tab_info = tabs_dict.get(tab_name) or tabs_dict.get(
+                        tab_name.replace("🤖 ", "")
+                    )
+                    func = (
+                        tab_info.get("chức năng", "Chưa có mô tả chức năng.")
+                        if tab_info
+                        else "Chưa có mô tả chức năng."
+                    )
+                    # Trình bày mỗi tab 1 dòng, in đậm tên tab
+                    result += f"{i+1}. <b>{tab_name}</b>: {func}<br>\n"
+                result += "<br>💡 <b>Tip:</b> Hỏi tôi chi tiết về tab nào để biết cách sử dụng!"
+                return result
+        # ...existing code...
 
         # Search in sub_tabs specifically
         for tab_name, tab_info in self.app_knowledge.get("tabs", {}).items():
@@ -787,6 +948,96 @@ Nếu hỏi về model AI: Trả lời thật {"🚀 Groq API - Llama 3.3 70B" i
                     return f"🚫 **Xin lỗi**, tab **{tab_name}** chỉ dành cho **Admin** hoặc **Accountant**.\n\nBạn là **Staff**, bạn có thể hỏi về:\n✅ Trang chủ\n✅ Ca bán hàng (Nhận hàng, Bán hàng)\n✅ Chi tiết bán\n✅ Hóa đơn\n✅ Báo cáo\n✅ Cài đặt"
 
         return None
+
+    def _try_execute_action(self, question: str) -> str:
+        """
+        Detect if question needs database action and execute it
+        Returns formatted answer if action executed, None otherwise
+        """
+        if not self.action_system:
+            return None
+
+        q_lower = question.lower()
+        from datetime import datetime
+
+        # 1. User debts query
+        debt_keywords = [
+            "số nợ",
+            "so no",
+            "nợ",
+            "no",
+            "user nợ",
+            "user no",
+            "danh sách nợ",
+        ]
+        if any(kw in q_lower for kw in debt_keywords):
+            result = self.action_system.execute_action("get_user_debts", {})
+
+            if result.get("success"):
+                users = result.get("data", [])
+                if not users:
+                    return "✅ Hiện tại không có user nào đang nợ tiền."
+
+                answer = f"📊 **Danh sách users đang nợ** (Tổng: {result.get('total_debt_formatted', '0 đ')}):\n\n"
+                for user in users:
+                    answer += f"• **{user['username']}** (ID: {user['user_id']}): Nợ **{user['debt_formatted']}**\n"
+                    if user["phone"] != "Chưa có SĐT":
+                        answer += f"  📞 {user['phone']}\n"
+
+                return answer
+            else:
+                return f"❌ Lỗi khi truy vấn số nợ: {result.get('message', 'Unknown error')}"
+
+        # 2. Fund ledger query (sổ quỹ)
+        fund_keywords = ["sổ quỹ", "so quy", "giao dịch", "giao dich", "thu chi"]
+        if any(kw in q_lower for kw in fund_keywords):
+            # Parse date range from question or use today
+            today = datetime.now().strftime("%Y-%m-%d")
+            start_date = today
+            end_date = today
+
+            # Check for date keywords
+            if "hôm nay" in q_lower or "hom nay" in q_lower:
+                start_date = end_date = today
+            elif "tháng này" in q_lower or "thang nay" in q_lower:
+                start_date = datetime.now().strftime("%Y-%m-01")
+                end_date = today
+            elif "tuần này" in q_lower or "tuan nay" in q_lower:
+                # Last 7 days
+                from datetime import timedelta
+
+                start_date = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+                end_date = today
+
+            result = self.action_system.execute_action(
+                "query_so_quy", {"start_date": start_date, "end_date": end_date}
+            )
+
+            if result.get("success"):
+                transactions = result.get("data", [])
+                if not transactions:
+                    return f"✅ Không có giao dịch nào từ {start_date} đến {end_date}."
+
+                summary = result.get("summary", {})
+                answer = f"📊 **Sổ quỹ** ({result.get('date_range', '')})\n\n"
+                answer += f"**Tổng cộng:** {summary.get('total_amount_formatted', '0 đ')} ({summary.get('transaction_count', 0)} giao dịch)\n\n"
+                answer += "**Chi tiết:**\n"
+
+                for txn in transactions[:10]:  # Limit to 10 transactions
+                    answer += f"• {txn['ngay']}: {txn['loai']} - **{txn['so_tien_formatted']}**\n"
+                    answer += f"  👤 {txn['nguoi_thuc_hien']}"
+                    if txn["nguoi_nhan"] != "N/A":
+                        answer += f" → {txn['nguoi_nhan']}"
+                    answer += "\n"
+
+                if len(transactions) > 10:
+                    answer += f"\n... và {len(transactions) - 10} giao dịch khác"
+
+                return answer
+            else:
+                return f"❌ Lỗi khi truy vấn sổ quỹ: {result.get('message', 'Unknown error')}"
+
+        return None  # No action needed
 
     def _is_it_sensitive_question(self, question: str) -> bool:
         """
@@ -912,47 +1163,117 @@ Nếu hỏi về model AI: Trả lời thật {"🚀 Groq API - Llama 3.3 70B" i
     def _auto_switch_tab(self, question: str):
         """
         Tự động chuyển đến tab tương ứng khi AI trả lời về tab đó.
-        Sử dụng hàm navigate_to_tab() từ main_window để tránh hardcode index.
         """
         if not self.main_window:
             return
 
-        # Check if main_window has navigate_to_tab method
-        if not hasattr(self.main_window, "navigate_to_tab"):
+        q_lower = question.lower().strip()
+        tab_map = getattr(self.main_window, "tab_map", {})
+        # Tập hợp alias mở rộng cho từng tab
+        alias_map = {
+            "trang chủ": ["trang chủ", "home", "dashboard"],
+            "sản phẩm": ["sản phẩm", "san pham", "sp", "product"],
+            "lịch sử giá": ["lịch sử giá", "lich su gia", "price history"],
+            "ca bán hàng": ["ca bán hàng", "ca", "ban hang", "nhan hang", "ca ban"],
+            "chi tiết bán": [
+                "chi tiết bán",
+                "chi tiet ban",
+                "hang da ban",
+                "da ban gi",
+            ],
+            "hóa đơn": ["hóa đơn", "hoa don", "invoice"],
+            "báo cáo": ["báo cáo", "bao cao", "report"],
+            "quản lý user": ["quản lý user", "quan ly user", "user management"],
+            "chênh lệch": ["chênh lệch", "chenh lech", "difference"],
+            "xuất bổ": ["xuất bổ", "xuất bỏ", "xuat bo", "xuất thêm"],
+            "công đoàn": ["công đoàn", "cong doan", "union", "thưởng"],
+            "sổ quỹ": ["sổ quỹ", "so quy", "fund", "quỹ", "chuyển tiền"],
+            "nhập đầu kỳ": ["nhập đầu kỳ", "nhap dau ky", "đầu kỳ", "initial"],
+            "cài đặt": ["cài đặt", "cai dat", "settings", "config"],
+        }
+        found = False
+        matched_key = None
+        matched_idx = None
+        # Ưu tiên khớp alias mở rộng
+        for tab_name, aliases in alias_map.items():
+            # Loại bỏ icon khi so sánh tên tab (ví dụ: '⚙️ Cài đặt')
+            tab_name_compare = tab_name
+            for key in tab_map.keys():
+                key_no_icon = key.replace("⚙️ ", "").strip()
+                if key_no_icon == tab_name:
+                    tab_name_compare = key
+                    break
+            for alias in aliases:
+                if alias in q_lower:
+                    idx = tab_map.get(tab_name_compare)
+                    if idx is not None:
+                        matched_key = tab_name_compare
+                        matched_idx = idx
+                        found = True
+                        break
+            if found:
+                break
+        if found and matched_idx is not None:
+            self.main_window.tabs.setCurrentIndex(matched_idx)
+            print(
+                f"[AI] Chuyển tab: '{matched_key}' (index: {matched_idx}) từ câu hỏi: '{question}'"
+            )
+            # Xử lý sub-tab Ca bán hàng rõ ràng
+            if matched_key == "ca bán hàng" and hasattr(
+                self.main_window, "tab_ca_banhang_tabs"
+            ):
+                if any(
+                    x in q_lower
+                    for x in ["nhận hàng", "nhan hang", "receive", "kiểm kê", "kiem ke"]
+                ):
+                    self.main_window.tab_ca_banhang_tabs.setCurrentIndex(0)
+                elif any(
+                    x in q_lower
+                    for x in [
+                        "bán hàng",
+                        "ban hang",
+                        "sell",
+                        "thanh toán",
+                        "thanh toan",
+                    ]
+                ):
+                    self.main_window.tab_ca_banhang_tabs.setCurrentIndex(1)
             return
-
-        q_lower = question.lower()
-
-        # List of tab keywords to search for in question
-        tab_keywords = [
-            "trang chủ", "trang chu", "home",
-            "sản phẩm", "san pham", "product",
-            "lịch sử giá", "lich su gia", "price history",
-            "ca bán hàng", "ca ban hang", "shift",
-            "nhận hàng", "nhan hang", "receive",
-            "bán hàng", "ban hang", "sell",
-            "chi tiết bán", "chi tiet ban", "sale detail", "sản phẩm đã bán", "san pham da ban",
-            "hóa đơn", "hoa don", "invoice",
-            "báo cáo", "bao cao", "report",
-            "cài đặt", "cai dat", "settings",
-            "quản lý user", "quan ly user", "user management",
-            "chênh lệch", "chenh lech", "difference",
-            "xuất bổ", "xuất bỏ", "xuat bo",
-            "công đoàn", "cong doan", "union",
-            "sổ quỹ", "so quy", "fund", "quỹ",
-            "nhập đầu kỳ", "nhap dau ky", "initial"
-        ]
-
-        # Find first matching keyword and navigate
-        for keyword in tab_keywords:
-            if keyword in q_lower:
-                try:
-                    success, message = self.main_window.navigate_to_tab(keyword)
-                    if success:
-                        return  # Stop after first successful navigation
-                except Exception as e:
-                    print(f"Warning: Could not switch to tab '{keyword}': {e}")
-                    pass
+        # Nếu không tìm thấy, thử khớp alias cũ trong tab_map
+        for key, idx in tab_map.items():
+            if key in q_lower:
+                self.main_window.tabs.setCurrentIndex(idx)
+                print(
+                    f"[AI] Chuyển tab: '{key}' (index: {idx}) từ câu hỏi: '{question}' [fallback]"
+                )
+                # Xử lý sub-tab Ca bán hàng
+                if key == "ca bán hàng" and hasattr(
+                    self.main_window, "tab_ca_banhang_tabs"
+                ):
+                    if any(
+                        x in q_lower
+                        for x in [
+                            "nhận hàng",
+                            "nhan hang",
+                            "receive",
+                            "kiểm kê",
+                            "kiem ke",
+                        ]
+                    ):
+                        self.main_window.tab_ca_banhang_tabs.setCurrentIndex(0)
+                    elif any(
+                        x in q_lower
+                        for x in [
+                            "bán hàng",
+                            "ban hang",
+                            "sell",
+                            "thanh toán",
+                            "thanh toan",
+                        ]
+                    ):
+                        self.main_window.tab_ca_banhang_tabs.setCurrentIndex(1)
+                return
+        # Nếu không tìm thấy, không chuyển tab
 
     def execute_action(
         self, action_name: str, params: Dict[str, Any]

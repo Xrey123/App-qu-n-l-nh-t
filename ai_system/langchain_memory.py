@@ -9,11 +9,15 @@ from typing import Dict, List, Optional
 
 try:
     from langchain_community.chat_message_histories import ChatMessageHistory
-    from langchain.schema import HumanMessage, AIMessage
+    from langchain_core.messages import HumanMessage, AIMessage
 except ImportError:
     # Fallback for older LangChain
-    from langchain.memory import ChatMessageHistory
-    from langchain.schema import HumanMessage, AIMessage
+    try:
+        from langchain.memory import ChatMessageHistory
+        from langchain.schema import HumanMessage, AIMessage
+    except ImportError:
+        from langchain_community.chat_message_histories import ChatMessageHistory
+        from langchain.schema.messages import HumanMessage, AIMessage
 
 
 class EnhancedMemory:
@@ -130,7 +134,7 @@ class EnhancedMemory:
         prefs = self._load_preferences()
 
         context = f"""
-📋 THÔNG TIN USER:
+USER INFO:
 - User ID: {self.user_id}
 - Role: {self.user_role}
 - Experience Level: {prefs['experience_level']}
@@ -141,7 +145,7 @@ class EnhancedMemory:
         # Thêm recent conversation history
         recent_messages = self.chat_history.messages[-10:]  # Last 5 Q&A pairs
         if recent_messages:
-            context += "\n🕐 RECENT CONVERSATION:\n"
+            context += "\nRECENT CONVERSATION:\n"
             for i in range(0, len(recent_messages), 2):
                 if i + 1 < len(recent_messages):
                     context += f"User: {recent_messages[i].content}\n"

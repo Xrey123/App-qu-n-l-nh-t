@@ -1,0 +1,94 @@
+{
+  "messages": [
+    {
+      "type": "human",
+      "content": "chào bạn",
+      "timestamp": "2025-11-12T22:01:12.941915"
+    },
+    {
+      "type": "ai",
+      "content": "Hãy thử hỏi chi tiết hơn về tabs, workflows, sản phẩm, hoặc báo cáo nhé! 😊",
+      "timestamp": "2025-11-12T22:01:12.941915"
+    },
+    {
+      "type": "human",
+      "content": "bạn là gì",
+      "timestamp": "2025-11-12T22:01:12.941915"
+    },
+    {
+      "type": "ai",
+      "content": "Tôi là AI trợ lý của **HỆ THỐNG QUẢN LÝ CỬA HÀNG NHỚT**.\n\n**Tôi có thể giúp bạn:**\n- 📱 Hướng dẫn sử dụng 14 tabs trong app\n- 🛢️ Giải thích cách tính giá (lẻ/buôn/VIP)  \n- 📊 Hướng dẫn workflow: Nhận hàng → Bán hàng → Xuất hóa đơn\n- 💡 Trả lời câu hỏi về chức năng app\n- 🔍 Tra cứu thông tin sản phẩm, kho, hóa đơn\n\n**Hỏi tôi ngay:**\n- \"liệt kê các tab\"\n- \"cách tính giá buôn\"\n- \"hướng dẫn bán hàng\"\n- \"tab nào dùng để xuất hóa đơn\"\n\n⚠️ **Lưu ý:** AI đang offline (Groq API rate limit). Tôi vẫn có thể trả lời từ knowledge base! 😊",
+      "timestamp": "2025-11-12T22:01:12.941915"
+    },
+    {
+      "type": "human",
+      "content": "liệt kê các tab có trong app",
+      "timestamp": "2025-11-12T22:01:12.941915"
+    },
+    {
+      "type": "ai",
+      "content": "📊 **App có 0 tabs chính:**\n\n💡 **Tip:** Hỏi tôi chi tiết về tab nào để biết cách sử dụng!",
+      "timestamp": "2025-11-12T22:01:12.941915"
+    },
+    {
+      "type": "human",
+      "content": "tab công đoàn làm gì",
+      "timestamp": "2025-11-12T22:01:12.941915"
+    },
+    {
+      "type": "ai",
+      "content": "Hãy thử hỏi chi tiết hơn về tabs, workflows, sản phẩm, hoặc báo cáo nhé! 😊",
+      "timestamp": "2025-11-12T22:01:12.941915"
+    },
+    {
+      "type": "human",
+      "content": "bạn biết gì vể app",
+      "timestamp": "2025-11-12T22:01:12.941915"
+    },
+    {
+      "type": "ai",
+      "content": "Hãy thử hỏi chi tiết hơn về tabs, workflows, sản phẩm, hoặc báo cáo nhé! 😊",
+      "timestamp": "2025-11-12T22:01:12.941915"
+    },
+    {
+      "type": "human",
+      "content": "cho mình biết số nợ các user",
+      "timestamp": "2025-11-12T22:01:12.941915"
+    },
+    {
+      "type": "ai",
+      "content": "❌ Lỗi khi truy vấn số nợ: Lỗi khi truy vấn số nợ: no such column: phone",
+      "timestamp": "2025-11-12T22:01:12.941915"
+    },
+    {
+      "type": "human",
+      "content": "có bao nhiêu sản phẩm trong kho",
+      "timestamp": "2025-11-12T22:01:12.941915"
+    },
+    {
+      "type": "ai",
+      "content": "Hãy thử hỏi chi tiết hơn về tabs, workflows, sản phẩm, hoặc báo cáo nhé! 😊",
+      "timestamp": "2025-11-12T22:01:12.941915"
+    },
+    {
+      "type": "human",
+      "content": "bạn thật hài hước",
+      "timestamp": "2025-11-12T22:01:12.941915"
+    },
+    {
+      "type": "ai",
+      "content": "Hãy thử hỏi chi tiết hơn về tabs, workflows, sản phẩm, hoặc báo cáo nhé! 😊",
+      "timestamp": "2025-11-12T22:01:12.941915"
+    },
+    {
+      "type": "human",
+      "content": "sai",
+      "timestamp": "2025-11-12T22:01:12.941915"
+    },
+    {
+      "type": "ai",
+      "content": "Hãy thử hỏi chi tiết hơn về tabs, workflows, sản phẩm, hoặc báo cáo nhé! 😊",
+      "timestamp": "2025-11-12T22:01:12.941915"
+    }
+  ]
+}

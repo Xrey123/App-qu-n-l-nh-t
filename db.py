@@ -1,4 +1,5 @@
 import sqlite3
+import hashlib
 from utils.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -17,6 +18,17 @@ def _add_column_if_missing(table_name: str, column_name: str, column_def: str):
     try:
         conn = ket_noi()
         c = conn.cursor()
+
+        c.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,),
+        )
+        if not c.fetchone():
+            logger.warning(
+                f"Bo qua thêm cột '{column_name}' vì bảng {table_name} chưa được tạo."
+            )
+            return
+
         c.execute(f"PRAGMA table_info({table_name})")
         columns = [row[1] for row in c.fetchall()]
 
@@ -43,20 +55,6 @@ def _add_column_if_missing(table_name: str, column_name: str, column_def: str):
 
 
 def khoi_tao_db():
-    # Add missing columns to existing tables
-    _add_column_if_missing("SanPham", "don_vi", "don_vi TEXT DEFAULT ''")
-    _add_column_if_missing("GiaoDichQuy", "ghi_chu", "ghi_chu TEXT")
-    _add_column_if_missing("LogKho", "loai_gia", "loai_gia TEXT")
-
-    # Add multiple columns to HoaDon
-    for col_name, col_def in [
-        ("tong_tien", "tong_tien REAL DEFAULT 0"),
-        ("uu_dai", "uu_dai REAL DEFAULT 0"),
-        ("tong_sau_uu_dai", "tong_sau_uu_dai REAL DEFAULT 0"),
-        ("tong_cuoi", "tong_cuoi REAL DEFAULT 0"),
-    ]:
-        _add_column_if_missing("HoaDon", col_name, col_def)
-
     conn = ket_noi()
     c = conn.cursor()
 
@@ -183,11 +181,8 @@ def khoi_tao_db():
         pass
 
     conn.commit()
-    conn.close()
 
     # Bảng ghi chênh lệch kiểm kê/nhận hàng để tra cứu sau này
-    conn = ket_noi()
-    c = conn.cursor()
     c.execute(
         """
         CREATE TABLE IF NOT EXISTS ChenhLech (
@@ -307,6 +302,45 @@ def khoi_tao_db():
 
     conn.commit()
     conn.close()
+
+    # Bổ sung các cột thiếu sau khi bảo đảm bảng đã tồn tại
+    _add_column_if_missing("SanPham", "don_vi", "don_vi TEXT DEFAULT ''")
+    _add_column_if_missing("GiaoDichQuy", "ghi_chu", "ghi_chu TEXT")
+    _add_column_if_missing("LogKho", "loai_gia", "loai_gia TEXT")
+
+    for col_name, col_def in [
+        ("tong_tien", "tong_tien REAL DEFAULT 0"),
+        ("uu_dai", "uu_dai REAL DEFAULT 0"),
+        ("tong_sau_uu_dai", "tong_sau_uu_dai REAL DEFAULT 0"),
+        ("tong_cuoi", "tong_cuoi REAL DEFAULT 0"),
+    ]:
+        _add_column_if_missing("HoaDon", col_name, col_def)
+
+    # Khởi tạo user mặc định nếu bảng Users đang rỗng
+    try:
+        conn = ket_noi()
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM Users")
+        count = c.fetchone()[0]
+        if count == 0:
+            default_username = "admin"
+            default_password = "admin123"
+            hashed_password = hashlib.sha256(default_password.encode()).hexdigest()
+            c.execute(
+                "INSERT INTO Users (username, password, role) VALUES (?, ?, ?)",
+                (default_username, hashed_password, "admin"),
+            )
+            conn.commit()
+            logger.info(
+                "Da tao user mac dinh 'admin' (mat khau: admin123). Vui long doi mat khau sau khi dang nhap."
+            )
+    except sqlite3.Error as e:
+        logger.error("Khong the khoi tao user mac dinh: %s", e, exc_info=True)
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

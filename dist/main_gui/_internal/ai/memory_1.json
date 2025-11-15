@@ -1,0 +1,24 @@
+{
+  "messages": [
+    {
+      "type": "human",
+      "content": "co bao nhiêu tab",
+      "timestamp": "2025-11-11T00:06:04.276854"
+    },
+    {
+      "type": "ai",
+      "content": "Hãy thử hỏi chi tiết hơn về tabs, workflows, sản phẩm, hoặc báo cáo nhé! 😊",
+      "timestamp": "2025-11-11T00:06:04.276854"
+    },
+    {
+      "type": "human",
+      "content": "ban la ai",
+      "timestamp": "2025-11-11T00:06:04.276854"
+    },
+    {
+      "type": "ai",
+      "content": "Hãy thử hỏi chi tiết hơn về tabs, workflows, sản phẩm, hoặc báo cáo nhé! 😊",
+      "timestamp": "2025-11-11T00:06:04.276854"
+    }
+  ]
+}

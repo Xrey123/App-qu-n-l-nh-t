@@ -417,6 +417,26 @@ class DangNhap(QWidget):
 
 
 class MainWindow(QWidget):
+    def normalize_tab_keyword(self, keyword):
+        """Ánh xạ alias về tên tab gốc (dùng cho chuyển tab)"""
+        alias_map = {
+            "cd": "công đoàn",
+            "bc": "báo cáo",
+            "config": "cài đặt",
+            "sp": "sản phẩm",
+            "hd": "hóa đơn",
+            "ctb": "chi tiết bán",
+            "xb": "xuất bổ",
+            "quy": "sổ quỹ",
+            "ndk": "nhập đầu kỳ",
+            "ca": "ca bán hàng",
+            "user": "quản lý user",
+            "ls": "lịch sử giá",
+            "ai": "ai agent",
+        }
+        k = keyword.strip().lower()
+        return alias_map.get(k, k)
+
     def __init__(self, user_id, role, login_window):
         super().__init__()
         self.user_id = user_id
@@ -602,51 +622,67 @@ class MainWindow(QWidget):
             tab_name = self.tabs.tabText(i).lower().replace("🤖 ", "")
             self.tab_map[tab_name] = i
 
-            # Add common keyword variations
+            # Sản phẩm
             if "sản phẩm" in tab_name or "san pham" in tab_name:
                 self.tab_map["sp"] = i
                 self.tab_map["product"] = i
+            # Lịch sử giá
             elif "lịch sử" in tab_name:
-                self.tab_map["gia"] = i
-                self.tab_map["history"] = i
+                self.tab_map["ls"] = i
+            # Ca bán hàng
             elif "ca bán" in tab_name or "ca ban" in tab_name:
                 self.tab_map["ca"] = i
-                self.tab_map["shift"] = i
+            # Chi tiết bán
             elif "chi tiết" in tab_name:
-                self.tab_map["chi tiet ban"] = i
-                self.tab_map["sale detail"] = i
+                self.tab_map["ctb"] = i
+            # Hóa đơn
             elif "hóa đơn" in tab_name or "hoa don" in tab_name:
-                self.tab_map["invoice"] = i
                 self.tab_map["hd"] = i
+            # Báo cáo
             elif "báo cáo" in tab_name or "bao cao" in tab_name:
-                self.tab_map["report"] = i
                 self.tab_map["bc"] = i
-                self.tab_map["kho"] = i  # "báo cáo kho"
+            # AI agent
             elif "ai agent" in tab_name:
                 self.tab_map["ai"] = i
-                self.tab_map["chat"] = i
+            # Quản lý User
             elif "quản lý user" in tab_name or "quan ly user" in tab_name:
                 self.tab_map["user"] = i
-                self.tab_map["nguoi dung"] = i
+            # Chênh lệch
             elif "chênh lệch" in tab_name or "chenh lech" in tab_name:
                 self.tab_map["cl"] = i
+            # Xuất bổ
             elif "xuất bổ" in tab_name or "xuat bo" in tab_name:
                 self.tab_map["xb"] = i
+            # Công đoàn
             elif "công đoàn" in tab_name or "cong doan" in tab_name:
                 self.tab_map["cd"] = i
+            # Sổ quỹ
             elif "sổ quỹ" in tab_name or "so quy" in tab_name:
                 self.tab_map["quy"] = i
-                self.tab_map["fund"] = i
+            # Nhập đầu kỳ
             elif "nhập đầu kỳ" in tab_name or "nhap dau ky" in tab_name:
-                self.tab_map["dau ky"] = i
                 self.tab_map["ndk"] = i
+            # Cài đặt
+            elif (
+                "cài đặt" in tab_name or "cai dat" in tab_name or "settings" in tab_name
+            ):
+                self.tab_map["config"] = i
+
+        # Debug: In ra toàn bộ tab_map để kiểm tra index
+        print("TAB MAP:")
+        for k, v in self.tab_map.items():
+            print(f"{k}: {v}")
 
     def navigate_to_tab(self, keywords):
         """Navigate to tab based on keywords. Returns (success, message)"""
-        msg_lower = keywords.lower()
+        msg_lower = keywords.lower().strip()
+        norm_keyword = self.normalize_tab_keyword(msg_lower)
 
         # Check for nested tabs first (Ca bán hàng)
-        if any(kw in msg_lower for kw in ["nhận hàng", "nhan hang", "receive", "kiểm kê", "kiem ke"]):
+        if any(
+            kw in msg_lower
+            for kw in ["nhận hàng", "nhan hang", "receive", "kiểm kê", "kiem ke"]
+        ):
             ca_idx = self.tab_map.get("ca bán hàng")
             if ca_idx is not None:
                 self.tabs.setCurrentIndex(ca_idx)
@@ -655,7 +691,10 @@ class MainWindow(QWidget):
                     self.tab_ca_banhang_tabs.setCurrentIndex(0)
                 return True, "✅ Đã chuyển đến tab **Nhận hàng**"
 
-        if any(kw in msg_lower for kw in ["bán hàng", "ban hang", "sell", "thanh toán", "thanh toan"]):
+        if any(
+            kw in msg_lower
+            for kw in ["bán hàng", "ban hang", "sell", "thanh toán", "thanh toan"]
+        ):
             ca_idx = self.tab_map.get("ca bán hàng")
             if ca_idx is not None:
                 self.tabs.setCurrentIndex(ca_idx)
@@ -665,13 +704,32 @@ class MainWindow(QWidget):
                 return True, "✅ Đã chuyển đến tab **Bán hàng**"
 
         # Special handling for "Chi tiết bán" (to avoid confusion with "bán hàng")
-        if any(kw in msg_lower for kw in ["chi tiết bán", "chi tiet ban", "sản phẩm đã bán", "san pham da ban", "hàng đã bán", "hang da ban", "đã bán gì", "da ban gi"]):
+        if any(
+            kw in msg_lower
+            for kw in [
+                "chi tiết bán",
+                "chi tiet ban",
+                "sản phẩm đã bán",
+                "san pham da ban",
+                "hàng đã bán",
+                "hang da ban",
+                "đã bán gì",
+                "da ban gi",
+            ]
+        ):
             chitiet_idx = self.tab_map.get("chi tiết bán")
             if chitiet_idx is not None:
                 self.tabs.setCurrentIndex(chitiet_idx)
                 return True, "✅ Đã chuyển đến tab **Chi tiết bán**"
 
-        # Check main tabs
+        # Check main tabs (ưu tiên alias chuẩn hóa)
+        if norm_keyword in self.tab_map:
+            idx = self.tab_map[norm_keyword]
+            self.tabs.setCurrentIndex(idx)
+            tab_name = self.tabs.tabText(idx)
+            return True, f"✅ Đã chuyển đến tab **{tab_name}**"
+
+        # Nếu không tìm thấy, thử tra từng alias trong tab_map như cũ
         for keyword, idx in self.tab_map.items():
             if keyword in msg_lower:
                 self.tabs.setCurrentIndex(idx)
@@ -752,8 +810,12 @@ class MainWindow(QWidget):
         ai_layout.addWidget(info_label)
 
         # Chat history
-        self.ai_chat_display = QTextEdit()
+        from PyQt5.QtWidgets import QTextBrowser
+
+        self.ai_chat_display = QTextBrowser()
         self.ai_chat_display.setReadOnly(True)
+        self.ai_chat_display.setOpenExternalLinks(False)  # Don't open in browser
+        self.ai_chat_display.anchorClicked.connect(self.handle_feedback_click)
 
         # Set smaller font for better readability
         chat_font = QFont("Segoe UI", 9)  # Reduced from 9 to 8pt
@@ -841,6 +903,7 @@ class MainWindow(QWidget):
                 self.ai_agent_right = AIAssistant(
                     main_window=self,
                     current_user_role=self.role,  # Pass user role for permissions
+                    current_user_id=self.user_id,  # Pass user ID for LangChain memory
                 )
 
                 # Check AI mode and display appropriate message
@@ -951,7 +1014,7 @@ class MainWindow(QWidget):
             # Gọi AI (role đã được set trong __init__)
             # LangChain version returns (answer, conversation_id)
             result = self.ai_agent_right.ask(message)
-            
+
             # Handle both old (string) and new (tuple) return format
             if isinstance(result, tuple):
                 response, conversation_id = result
@@ -981,10 +1044,27 @@ class MainWindow(QWidget):
             )  # Bold
 
             self.ai_chat_display.append(f"<b>🤖 AI:</b><br>{formatted_response}<br>")
-            
+
             # Add feedback buttons if conversation_id available
             if conversation_id:
-                self.add_feedback_buttons(conversation_id)
+                # Store conversation_id for feedback
+                if not hasattr(self, "conversation_ids"):
+                    self.conversation_ids = {}
+                self.conversation_ids[conversation_id] = {
+                    "question": message,
+                    "answer": response,
+                }
+
+                # Add clickable feedback HTML (NO widgets, just HTML links)
+                self.ai_chat_display.append(
+                    f'<span style="color: #7f8c8d; font-size: 9pt;">'
+                    f"<i>Câu trả lời này có hữu ích không? </i>"
+                    f'<a href="helpful:{conversation_id}" style="color: #2ecc71; text-decoration: none; font-size: 14pt;">👍</a> '
+                    f'<a href="helpful:{conversation_id}" style="color: #2ecc71; text-decoration: none; font-size: 9pt;">Có</a> '
+                    f'<a href="not-helpful:{conversation_id}" style="color: #e74c3c; text-decoration: none; font-size: 14pt;">👎</a> '
+                    f'<a href="not-helpful:{conversation_id}" style="color: #e74c3c; text-decoration: none; font-size: 9pt;">Không</a>'
+                    f"</span><br>"
+                )
 
         except Exception as e:
             self.ai_chat_display.append(f"<b>❌ Lỗi:</b> {e}<br>")
@@ -994,6 +1074,40 @@ class MainWindow(QWidget):
             self.ai_chat_display.verticalScrollBar().maximum()
         )
 
+    def handle_feedback_click(self, url):
+        """Handle click on feedback links"""
+        url_str = url.toString()
+
+        # Parse URL: "helpful:conversation_id" or "not-helpful:conversation_id"
+        if ":" not in url_str:
+            return
+
+        action, conversation_id = url_str.split(":", 1)
+        is_helpful = action == "helpful"
+
+        # Send feedback to AI
+        self.send_feedback_from_link(conversation_id, is_helpful)
+
+    def send_feedback_from_link(self, conversation_id: str, is_helpful: bool):
+        """Send feedback từ HTML link"""
+        try:
+            # Call AI feedback method
+            self.ai_agent_right.feedback(conversation_id, is_helpful)
+
+            # Show confirmation
+            icon = "👍" if is_helpful else "👎"
+            self.ai_chat_display.append(
+                f'<span style="color: #95a5a6; font-size: 8pt;">'
+                f"<i>Cảm ơn phản hồi của bạn! {icon}</i></span><br>"
+            )
+
+            # Scroll to bottom
+            self.ai_chat_display.verticalScrollBar().setValue(
+                self.ai_chat_display.verticalScrollBar().maximum()
+            )
+        except Exception as e:
+            print(f"⚠️ Feedback error: {e}")
+
     def add_feedback_buttons(self, conversation_id):
         """Thêm nút 👍👎 feedback sau AI response"""
         # Create a container widget for buttons
@@ -1001,13 +1115,14 @@ class MainWindow(QWidget):
         feedback_layout = QHBoxLayout()
         feedback_layout.setContentsMargins(0, 5, 0, 5)
         feedback_widget.setLayout(feedback_layout)
-        
+
         feedback_layout.addWidget(QLabel("<i>Câu trả lời này hữu ích không?</i>"))
-        
+
         # Like button
         btn_like = QPushButton("👍")
         btn_like.setFixedSize(35, 35)
-        btn_like.setStyleSheet("""
+        btn_like.setStyleSheet(
+            """
             QPushButton {
                 background: #2ecc71;
                 color: white;
@@ -1021,15 +1136,19 @@ class MainWindow(QWidget):
             QPushButton:pressed {
                 background: #1e8449;
             }
-        """)
-        btn_like.clicked.connect(lambda: self.send_feedback(conversation_id, True, btn_like, btn_dislike))
+        """
+        )
+        btn_like.clicked.connect(
+            lambda: self.send_feedback(conversation_id, True, btn_like, btn_dislike)
+        )
         btn_like.setToolTip("Hữu ích")
         feedback_layout.addWidget(btn_like)
-        
+
         # Dislike button
         btn_dislike = QPushButton("👎")
         btn_dislike.setFixedSize(35, 35)
-        btn_dislike.setStyleSheet("""
+        btn_dislike.setStyleSheet(
+            """
             QPushButton {
                 background: #e74c3c;
                 color: white;
@@ -1043,33 +1162,37 @@ class MainWindow(QWidget):
             QPushButton:pressed {
                 background: #a93226;
             }
-        """)
-        btn_dislike.clicked.connect(lambda: self.send_feedback(conversation_id, False, btn_like, btn_dislike))
+        """
+        )
+        btn_dislike.clicked.connect(
+            lambda: self.send_feedback(conversation_id, False, btn_like, btn_dislike)
+        )
         btn_dislike.setToolTip("Không hữu ích")
         feedback_layout.addWidget(btn_dislike)
-        
+
         feedback_layout.addStretch()
-        
+
         # Add widget to chat display
         self.ai_chat_display.append("")  # Add some space
         cursor = self.ai_chat_display.textCursor()
         cursor.movePosition(cursor.End)
         self.ai_chat_display.setTextCursor(cursor)
-        
+
     def send_feedback(self, conversation_id, is_helpful, btn_like, btn_dislike):
         """Gửi feedback và disable buttons"""
         try:
             # Send feedback to AI
-            if hasattr(self.ai_agent_right, 'feedback'):
+            if hasattr(self.ai_agent_right, "feedback"):
                 self.ai_agent_right.feedback(conversation_id, is_helpful)
-            
+
             # Disable both buttons after feedback
             btn_like.setEnabled(False)
             btn_dislike.setEnabled(False)
-            
+
             # Update style to show selected
             if is_helpful:
-                btn_like.setStyleSheet("""
+                btn_like.setStyleSheet(
+                    """
                     QPushButton {
                         background: #27ae60;
                         color: white;
@@ -1077,10 +1200,14 @@ class MainWindow(QWidget):
                         border-radius: 17px;
                         border: 3px solid #1e8449;
                     }
-                """)
-                self.ai_chat_display.append("<i style='color: #27ae60;'>✓ Cảm ơn phản hồi của bạn!</i><br>")
+                """
+                )
+                self.ai_chat_display.append(
+                    "<i style='color: #27ae60;'>✓ Cảm ơn phản hồi của bạn!</i><br>"
+                )
             else:
-                btn_dislike.setStyleSheet("""
+                btn_dislike.setStyleSheet(
+                    """
                     QPushButton {
                         background: #c0392b;
                         color: white;
@@ -1088,9 +1215,12 @@ class MainWindow(QWidget):
                         border-radius: 17px;
                         border: 3px solid #a93226;
                     }
-                """)
-                self.ai_chat_display.append("<i style='color: #c0392b;'>✓ Cảm ơn phản hồi! AI sẽ cải thiện.</i><br>")
-            
+                """
+                )
+                self.ai_chat_display.append(
+                    "<i style='color: #c0392b;'>✓ Cảm ơn phản hồi! AI sẽ cải thiện.</i><br>"
+                )
+
         except Exception as e:
             print(f"Failed to send feedback: {e}")
 
@@ -1102,11 +1232,13 @@ class MainWindow(QWidget):
                 self.ai_agent_right, "conversation_history"
             ):
                 self.ai_agent_right.conversation_history = []
-            
+
             # Clear LangChain memory
-            if hasattr(self, "ai_agent_right") and hasattr(
-                self.ai_agent_right, "enhanced_memory"
-            ) and self.ai_agent_right.enhanced_memory:
+            if (
+                hasattr(self, "ai_agent_right")
+                and hasattr(self.ai_agent_right, "enhanced_memory")
+                and self.ai_agent_right.enhanced_memory
+            ):
                 self.ai_agent_right.enhanced_memory.clear_memory()
 
             # Clear display
@@ -5103,7 +5235,7 @@ class MainWindow(QWidget):
             if hasattr(self, "ai_agent_right"):
                 success, message = self.ai_agent_right.set_groq_api_key(api_key)
                 if success:
-                    show_success(self, "Thành công", message)
+                    show_success(self, message)
                     self._update_ai_status_display()
                 else:
                     show_error(self, "Lỗi", message)
@@ -8482,7 +8614,7 @@ if __name__ == "__main__":
     # Simulate loading process
     def init_app():
         global login_window
-        
+
         splash.update_status("Đang khởi tạo database...")
         QApplication.processEvents()
 
