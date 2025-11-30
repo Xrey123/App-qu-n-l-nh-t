@@ -3,7 +3,7 @@ from db import ket_noi
 from utils.db_helpers import execute_query, db_transaction
 
 
-def lay_ton_kho(sanpham_id):
+def lay_ton_kho(sanpham_id: int) -> int | None:
     """
     Lấy số lượng tồn kho của một sản phẩm
 
@@ -19,7 +19,7 @@ def lay_ton_kho(sanpham_id):
     return result[0] if result else None
 
 
-def cap_nhat_ton_kho(sanpham_id, so_luong_moi):
+def cap_nhat_ton_kho(sanpham_id: int, so_luong_moi: int) -> bool:
     """
     Cập nhật tồn kho của một sản phẩm
 
@@ -39,7 +39,13 @@ def cap_nhat_ton_kho(sanpham_id, so_luong_moi):
         return False
 
 
-def cap_nhat_kho_sau_ban(sanpham_id, so_luong, user_id, gia_ap_dung, chenh_lech=0):
+def cap_nhat_kho_sau_ban(
+    sanpham_id: int,
+    so_luong: int,
+    user_id: int,
+    gia_ap_dung: float,
+    chenh_lech: float = 0.0,
+) -> tuple[bool, str]:
     try:
         with db_transaction() as (conn, c):
             # Kiểm tra tồn kho
@@ -95,7 +101,7 @@ def lay_san_pham_chua_xuat():
     )
 
 
-def lay_san_pham_chua_xuat_theo_loai_gia(loai_gia):
+def lay_san_pham_chua_xuat_theo_loai_gia(loai_gia: str) -> list[tuple[str, int]]:
     """
     Lấy tổng số lượng sản phẩm chưa xuất hóa đơn theo loại giá
     Returns: [(ten_san_pham, tong_so_luong), ...]
@@ -117,7 +123,14 @@ def lay_san_pham_chua_xuat_theo_loai_gia(loai_gia):
     )
 
 
-def xuat_bo_san_pham(hoadon_id, sanpham_id, user_id, so_luong, gia, chenh_lech):
+def xuat_bo_san_pham(
+    hoadon_id: int,
+    sanpham_id: int,
+    user_id: int,
+    so_luong: int,
+    gia: float,
+    chenh_lech: float,
+) -> tuple[bool, str]:
     try:
         with db_transaction() as (conn, c):
             # Cập nhật trạng thái xuất hóa đơn
@@ -146,16 +159,16 @@ def xuat_bo_san_pham(hoadon_id, sanpham_id, user_id, so_luong, gia, chenh_lech):
 
 
 def xuat_bo_san_pham_theo_ten(
-    ten_sanpham,
-    loai_gia,
-    so_luong_xuat,
-    user_id,
-    chenh_lech,
-    loai_gia_phu=None,
-    so_luong_phu=0,
-    loai_gia_phu2=None,
-    so_luong_phu2=0,
-):
+    ten_sanpham: str,
+    loai_gia: str,
+    so_luong_xuat: int,
+    user_id: int,
+    chenh_lech: float,
+    loai_gia_phu: str | None = None,
+    so_luong_phu: int = 0,
+    loai_gia_phu2: str | None = None,
+    so_luong_phu2: int = 0,
+) -> tuple[bool, str]:
     """
     Xuất bổ sản phẩm theo tên sản phẩm, loại giá và số lượng.
     Tự động tìm và xuất từ các hóa đơn chưa xuất theo FIFO.

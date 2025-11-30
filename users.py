@@ -69,8 +69,8 @@ def lay_so_du(user_id):
     return result[0] if result else 0
 
 
-def chuyen_tien(tu_user, den_user, so_tien, hoadon_id=None):
-    """Chuyển tiền giữa 2 user. Nếu biết hoadon_id, lưu kèm vào giao dịch để theo dõi theo hóa đơn."""
+def chuyen_tien(tu_user, den_user, so_tien, ghi_chu=None, hoadon_id=None):
+    """Chuyển tiền giữa 2 user với ghi chú."""
     from datetime import datetime
 
     # ✅ Validate input
@@ -94,10 +94,12 @@ def chuyen_tien(tu_user, den_user, so_tien, hoadon_id=None):
             )
             # Lưu giao dịch với thời gian local (giờ Việt Nam)
             thoi_gian_hien_tai = datetime.now().isoformat()
-            if hoadon_id is not None:
+            
+            # Lưu vào GiaoDichQuy với ghi_chu nếu có
+            if hoadon_id is not None or ghi_chu is not None:
                 c.execute(
-                    "INSERT INTO GiaoDichQuy (user_id, user_nhan_id, so_tien, ngay, hoadon_id) VALUES (?, ?, ?, ?, ?)",
-                    (tu_user, den_user, so_tien, thoi_gian_hien_tai, hoadon_id),
+                    "INSERT INTO GiaoDichQuy (user_id, user_nhan_id, so_tien, ngay, hoadon_id, ghi_chu) VALUES (?, ?, ?, ?, ?, ?)",
+                    (tu_user, den_user, so_tien, thoi_gian_hien_tai, hoadon_id, ghi_chu),
                 )
             else:
                 c.execute(

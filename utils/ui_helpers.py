@@ -10,7 +10,9 @@ from PyQt5.QtWidgets import (
     QDoubleSpinBox,
     QTreeWidget,
     QTreeWidgetItem,
+    QHeaderView,
 )
+from PyQt5.QtCore import Qt
 
 
 def show_error(parent, title, message):
@@ -31,6 +33,37 @@ def show_success(parent, message):
 def show_warning(parent, message):
     """Hiển thị thông báo cảnh báo"""
     QMessageBox.warning(parent, "Cảnh báo", message)
+
+
+def show_confirmation(parent, message):
+    """
+    Hiển thị hộp thoại xác nhận
+
+    Returns:
+        True nếu user click Yes/OK, False nếu click No/Cancel
+    """
+    reply = QMessageBox.question(
+        parent, "Xác nhận", message, QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+    )
+    return reply == QMessageBox.Yes
+
+
+def setup_table(table_widget):
+    """Thiết lập bảng để hiển thị đầy đủ các cột"""
+    # Tự động điều chỉnh độ rộng cột
+    table_widget.horizontalHeader().setStretchLastSection(True)
+    table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+
+    # Đảm bảo bảng có thể cuộn ngang nếu cần
+    table_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+    table_widget.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+    # Không dùng màu nền thay thế — giữ mặc định
+    table_widget.setAlternatingRowColors(False)
+    # Tăng chiều cao dòng mặc định để nội dung dễ nhìn hơn
+    try:
+        table_widget.verticalHeader().setDefaultSectionSize(26)
+    except Exception:
+        pass
 
 
 def show_confirmation(parent, message):
