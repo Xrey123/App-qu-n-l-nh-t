@@ -1,0 +1,34 @@
+{
+  "user": {
+    "file": "users.py",
+    "desc": "Quản lý user, đăng nhập, phân quyền"
+  },
+  "sản phẩm": {
+    "file": "products.py",
+    "desc": "Thêm, sửa, xóa, tìm sản phẩm"
+  },
+  "hóa đơn": {
+    "file": "invoices.py",
+    "desc": "Tạo hóa đơn, xuất hóa đơn"
+  },
+  "báo cáo": {
+    "file": "reports.py",
+    "desc": "Doanh thu, xuất kho, log"
+  },
+  "kho": {
+    "file": "stock.py",
+    "desc": "Quản lý kho, xuất bổ"
+  },
+  "database": {
+    "file": "db.py",
+    "desc": "Kết nối SQLite, khởi tạo DB"
+  },
+  "giao diện": {
+    "file": "main_gui.py",
+    "desc": "PyQt5 main window, 13 tabs"
+  },
+  "ai": {
+    "file": "ai/simple_ai.py",
+    "desc": "AI assistant với Gemma 2B"
+  }
+}

@@ -1,0 +1,814 @@
+{
+  "app_info": {
+    "name": "Hệ thống quản lý cửa hàng nhớt",
+    "description": "Ứng dụng desktop PyQt5 quản lý bán nhớt (dầu nhớt, dầu máy), kho, hóa đơn, báo cáo",
+    "database": "fapp.db (SQLite) - 13 bảng",
+    "main_file": "main_gui.py (7624 dòng)",
+    "launcher": "start.py hoặc START_APP_SIMPLE.bat",
+    "sản phẩm": "Các loại nhớt: PLC KOMAT, PLC RACER, PLC CARTER, PCL GEAR OIL, PLC-AW HYDROIL"
+  },
+  "tabs": {
+    "🏠 Trang chủ": {
+      "chức năng": "Màn hình chính sau đăng nhập, hiển thị thông tin tổng quan, dashboard, thống kê nhanh",
+      "quyền": "Tất cả (Admin, Accountant, Staff)",
+      "nút": [
+        "Đổi mật khẩu",
+        "Đăng xuất (góc trên bên phải)"
+      ],
+      "hiển thị": "Username, lời chào, thông tin ca hiện tại",
+      "vị trí nút đăng xuất": "Góc trên bên phải màn hình, cạnh username",
+      "keywords": [
+        "trang chủ",
+        "home",
+        "dashboard",
+        "đăng xuất",
+        "logout"
+      ]
+    },
+    "Sản phẩm": {
+      "chức năng": "Quản lý danh sách dầu nhớt (PLC KOMAT, PLC RACER, PCL GEAR OIL, PLC-AW HYDROIL)",
+      "quyền": "Admin, Accountant",
+      "cột": [
+        "ID",
+        "Tên",
+        "Đơn vị",
+        "Tồn kho",
+        "Giá lẻ",
+        "Giá buôn",
+        "Giá VIP",
+        "Ngưỡng buôn"
+      ],
+      "nút": [
+        "Thêm sản phẩm",
+        "Import Excel",
+        "Xóa",
+        "Sửa",
+        "Refresh"
+      ],
+      "giải thích": "Tồn kho hiển thị số lượng hiện có. Giá lẻ (bán lẻ), Giá buôn (>=ngưỡng), Giá VIP (khách thân thiết)",
+      "ví dụ": [
+        "PLC KOMAT SUPER 20W/40 200 lít",
+        "PLC RACER 2T 1 lít",
+        "PLC-AW HYDROIL 68 209 lít"
+      ],
+      "keywords": [
+        "sản phẩm",
+        "product",
+        "sp",
+        "dầu nhớt",
+        "nhớt"
+      ]
+    },
+    "Lịch sử giá": {
+      "chức năng": "Xem lịch sử thay đổi giá sản phẩm theo thời gian",
+      "quyền": "Admin, Accountant",
+      "cột": [
+        "Ngày",
+        "Sản phẩm",
+        "Giá lẻ",
+        "Giá buôn",
+        "Giá VIP"
+      ],
+      "nút": [
+        "Tải dữ liệu",
+        "Xuất Excel"
+      ],
+      "giải thích": "Lọc theo khoảng thời gian (từ ngày - đến ngày)"
+    },
+    "Ca bán hàng": {
+      "chức năng": "Tab tổng hợp 2 sub-tab: Nhận hàng (kiểm kê) và Bán hàng",
+      "quyền": "Tất cả",
+      "keywords": [
+        "ca bán hàng",
+        "ca",
+        "shift"
+      ],
+      "sub_tabs": {
+        "Nhận hàng": {
+          "chức năng": "Kiểm kê / Nhập số lượng hiện có, so sánh với tồn hệ thống, phát hiện chênh lệch",
+          "cột": [
+            "Tên sản phẩm",
+            "Số lượng đếm",
+            "Tồn hệ thống",
+            "Chênh lệch",
+            "Ghi chú"
+          ],
+          "nút": [
+            "Tải danh sách sản phẩm",
+            "Xác nhận nhận hàng"
+          ],
+          "workflow": "1. Click 'Tải danh sách sản phẩm'\n2. Nhập số lượng đếm thực tế vào cột 'Số lượng đếm'\n3. Hệ thống tự tính chênh lệch = Số đếm - Tồn hệ thống\n4. Nếu có chênh lệch, nhập lý do vào cột 'Ghi chú'\n5. Click 'Xác nhận nhận hàng'\n6. File CSV tự động lưu vào data_export/nhan_hang/\n7. Nếu có chênh lệch, dialog hiện lên cho chọn áp vào kho hay không",
+          "keywords": [
+            "nhận hàng",
+            "nhan hang",
+            "kiểm kê",
+            "kiem ke",
+            "receive"
+          ]
+        },
+        "Bán hàng": {
+          "chức năng": "Tạo lịch sử bán dầu nhớt cho khách hàng",
+          "cột": [
+            "Tên SP",
+            "Số lượng",
+            "Đơn giá",
+            "Giảm giá",
+            "Khách ưu đãi",
+            "Xuất HĐ",
+            "Loại giá",
+            "Thành tiền"
+          ],
+          "nút": [
+            "Thêm",
+            "Xóa",
+            "Thanh toán",
+            "In hóa đơn",
+            "Làm mới"
+          ],
+          "workflow": "1. Chọn sản phẩm từ dropdown\n2. Nhập số lượng bán\n3. Chọn loại giá (Lẻ/Buôn/VIP)\n4. Nhập giảm giá nếu có\n5. Tích 'Khách ưu đãi' nếu là khách VIP\n6. Tích 'Xuất HĐ' nếu cần xuất hóa đơn VAT\n7. Click 'Thêm' → Sản phẩm hiển thị trong bảng\n8. Lặp lại để thêm SP khác\n9. Click 'Thanh toán' → Tạo hóa đơn\n10. Tồn kho tự trừ\n11. Click 'In hóa đơn' nếu cần in",
+          "keywords": [
+            "bán hàng",
+            "ban hang",
+            "sell",
+            "thanh toán"
+          ]
+        }
+      }
+    },
+    "Chi tiết bán": {
+      "chức năng": "Xem chi tiết từng ca bán hàng và quản lý nợ (thanh toán cho Accountant)",
+      "quyền": "Tất cả",
+      "mục đích": "Theo dõi các ca bán hàng nào còn nợ chưa thanh toán cho Accountant. Khi nhân viên bán hàng, họ phải nộp tiền cho Accountant để Accountant có tiền xuất bổ cho khách.",
+      "cột": [
+        "ID",
+        "User ID",
+        "Username",
+        "Ngày",
+        "Trạng thái",
+        "Số dư (Nợ) - Số tiền còn nợ Accountant",
+        "Chi tiết - Link xem chi tiết sản phẩm đã bán",
+        "Nộp tiền - Nút để nộp tiền cho Accountant"
+      ],
+      "nút": [
+        "Làm mới",
+        "Tải dữ liệu (lọc theo ngày)",
+        "Chi tiết - Xem chi tiết hóa đơn",
+        "💰 Nộp cho Accountant - Chuyển tiền từ nhân viên sang Accountant",
+        "✅ Đã thanh toán - Hiển thị khi hết nợ"
+      ],
+      "workflow": "1. Nhân viên bán hàng → Tạo hóa đơn trong tab 'Bán hàng'\n2. Hóa đơn xuất hiện ở tab 'Chi tiết bán'\n3. Nhân viên thấy 'Số dư (Nợ)' = Số tiền phải nộp cho Accountant\n4. Click 'Nộp cho Accountant' → Nhập số tiền → Xác nhận\n5. Tiền chuyển từ nhân viên sang Accountant\n6. Accountant có tiền để xuất bổ cho khách\n7. Khi nộp hết nợ → Hiện '✅ Đã thanh toán'",
+      "lưu ý": [
+        "Số dư (Nợ) = Tổng tiền sản phẩm CHƯA xuất hóa đơn - Số tiền đã nộp",
+        "Có thể nộp từng phần, không cần nộp hết 1 lần",
+        "Tất cả user đều có thể nộp tiền (Staff, Accountant, Admin)",
+        "Tiền tự động chuyển vào số dư của Accountant",
+        "Xem lịch sử nộp tiền trong tab 'Sổ quỹ > Lịch sử giao dịch'"
+      ],
+      "keywords": [
+        "chi tiết bán",
+        "chi tiet ban",
+        "nộp tiền",
+        "nop tien",
+        "thanh toán accountant",
+        "còn nợ",
+        "con no",
+        "debt"
+      ]
+    },
+    "Hóa đơn": {
+      "chức năng": "Quản lý danh sách hóa đơn đã xuất cho khách hàng",
+      "quyền": "Tất cả",
+      "cột": [
+        "ID",
+        "Ngày",
+        "Tổng tiền",
+        "Trạng thái thanh toán",
+        "Ghi chú"
+      ],
+      "nút": [
+        "Tải dữ liệu",
+        "Xem chi tiết",
+        "In hóa đơn",
+        "Xuất Excel"
+      ],
+      "giải thích": "Xem tất cả hóa đơn đã tạo, in lại, xem chi tiết"
+    },
+    "Báo cáo": {
+      "chức năng": "Xem báo cáo doanh thu, kho, xuất hàng",
+      "quyền": "Admin, Accountant",
+      "sub_tabs": {
+        "Báo cáo kho": {
+          "cột": [
+            "Sản phẩm",
+            "Tồn đầu",
+            "Nhập",
+            "Xuất",
+            "Tồn cuối"
+          ],
+          "nút": [
+            "Tải dữ liệu",
+            "Xuất Excel"
+          ]
+        },
+        "Biểu đồ sản lượng": {
+          "chức năng": "Hiển thị biểu đồ cột doanh số bán theo tháng"
+        }
+      }
+    },
+    "🤖 AI Agent": {
+      "chức năng": "Chat với AI trợ lý (bạn!)",
+      "quyền": "Tất cả",
+      "nút": [
+        "Gửi (hoặc Enter)"
+      ],
+      "giải thích": "Hỏi về sản phẩm, hướng dẫn, workflow, báo cáo"
+    },
+    "Quản lý User": {
+      "chức năng": "Quản lý tài khoản người dùng",
+      "quyền": "Admin",
+      "cột": [
+        "ID",
+        "Username",
+        "Role",
+        "Số dư"
+      ],
+      "nút": [
+        "Thêm user",
+        "Xóa user",
+        "Chuyển tiền",
+        "Lịch sử quỹ"
+      ],
+      "vai_trò": {
+        "admin": "Full quyền: thêm/xóa user, sản phẩm, xem tất cả báo cáo",
+        "accountant": "Xem báo cáo, sản phẩm, hóa đơn (không thêm/xóa user)",
+        "staff": "Chỉ bán hàng, nhận hàng, xem hóa đơn của mình"
+      }
+    },
+    "Chênh lệch": {
+      "chức năng": "Xử lý chênh lệch kho (kiểm kê phát hiện thừa/thiếu)",
+      "quyền": "Admin, Accountant",
+      "cột": [
+        "Ngày",
+        "Sản phẩm",
+        "Chênh",
+        "Tồn trước",
+        "Tồn sau",
+        "Ghi chú",
+        "Xử lý"
+      ],
+      "nút": [
+        "Tải dữ liệu",
+        "Xử lý chênh lệch"
+      ],
+      "workflow": "1. Lọc theo khoảng thời gian\n2. Click 'Tải dữ liệu' → Hiển thị các lần chênh lệch\n3. Tích chọn dòng cần xử lý (checkbox)\n4. Click 'Xử lý chênh lệch'\n5. Chọn loại xử lý:\n   - Bán bổ sung (nộp tiền)\n   - Trả lại tiền\n   - Thay thế hàng\n   - Coi như đã bán\n6. Chọn user chịu trách nhiệm\n7. Xác nhận → Cập nhật database",
+      "giải thích": "Cột 'Chênh' = Số lượng đếm thực tế - Tồn hệ thống. Dương = thừa, âm = thiếu"
+    },
+    "Xuất bỏ": {
+      "chức năng": "Xuất hàng bổ sung cho 3 loại giá: Buôn, VIP, Lẻ",
+      "quyền": "Accountant",
+      "6_bảng": [
+        "CHƯA XUẤT - GIÁ BUÔN: Sản phẩm giá buôn chưa xuất",
+        "CHƯA XUẤT - GIÁ VIP: Sản phẩm giá VIP chưa xuất",
+        "CHƯA XUẤT - GIÁ LẺ: Sản phẩm giá lẻ chưa xuất (có cột Trạng thái)",
+        "XUẤT DƯ - GIÁ BUÔN: Sản phẩm giá buôn xuất dư",
+        "XUẤT DƯ - GIÁ VIP: Sản phẩm giá VIP xuất dư",
+        "XUẤT DƯ - GIÁ LẺ: Sản phẩm giá lẻ xuất dư"
+      ],
+      "form_thủ_công": {
+        "vị_trí": "Ở dưới cùng tab",
+        "cột": [
+          "Tên sản phẩm",
+          "Số lượng",
+          "Loại giá (Buôn/VIP/Lẻ)",
+          "Tiền"
+        ],
+        "nút": [
+          "Làm mới",
+          "Thêm dòng",
+          "XUẤT BỎ"
+        ]
+      },
+      "logic": {
+        "chưa_xuất": "Hiển thị sản phẩm đã bán nhưng CHƯA XUẤT HÓA ĐƠN (XHD = unchecked trong tab Bán hàng)",
+        "xuất_dư": "Hiển thị sản phẩm đã xuất DƯ so với số lượng bán",
+        "khi_xuất_bỏ": "Khi nhấn 'XUẤT BỎ' → Tạo record vào ChenhLechXuatBo → Dùng để tính thưởng công đoàn"
+      },
+      "workflow": "1. Vào tab 'Xuất bỏ'\n2. Xem 6 bảng: 3 'Chưa xuất' + 3 'Xuất dư' cho 3 loại giá\n3. Xuất thủ công: Điền vào form dưới cùng → Nhấn 'XUẤT BỎ'\n4. Hệ thống tạo record vào ChenhLechXuatBo để tính thưởng công đoàn",
+      "keywords": [
+        "xuất bỏ",
+        "xuat bo",
+        "chưa xuất",
+        "xuất dư",
+        "xuất hàng bổ sung"
+      ]
+    },
+    "Công đoàn": {
+      "chức năng": "Quản lý quỹ công đoàn từ nhớt",
+      "quyền": "Admin",
+      "nút": [
+        "Nộp quỹ",
+        "Rút quỹ",
+        "Lịch sử"
+      ]
+    },
+    "Sổ quỹ": {
+      "chức năng": "Xem lịch sử thu chi tiền",
+      "quyền": "Admin, Accountant",
+      "cột": [
+        "Ngày",
+        "Loại",
+        "Số tiền",
+        "Ghi chú"
+      ]
+    },
+    "Nhập đầu kỳ": {
+      "chức năng": "Nhập tồn kho ban đầu khi mới dùng app",
+      "quyền": "Admin",
+      "nút": [
+        "Nhập đầu kỳ"
+      ],
+      "giải thích": "Dùng 1 lần đầu tiên để khởi tạo tồn kho"
+    }
+  },
+  "workflows": {
+    "nhập hàng": {
+      "bước 1": "Click tab 'Ca bán hàng'",
+      "bước 2": "Click sub-tab 'Nhận hàng'",
+      "bước 3": "Chọn sản phẩm từ dropdown (ví dụ: RON 95-III)",
+      "bước 4": "Nhập số lượng (ví dụ: 1000)",
+      "bước 5": "Click nút 'Nhập hàng'",
+      "kết quả": "Tồn kho tự động cập nhật = Tồn hiện tại + Số lượng nhập. Có thể xuất CSV."
+    },
+    "bán hàng": {
+      "bước 1": "Click tab 'Ca bán hàng'",
+      "bước 2": "Click sub-tab 'Bán hàng'",
+      "bước 3": "Chọn sản phẩm (ví dụ: RON 95-III)",
+      "bước 4": "Nhập số lượng bán (ví dụ: 50)",
+      "bước 5": "Chọn loại giá (Lẻ/Buôn/VIP)",
+      "bước 6": "Click 'Thêm' → SP hiển thị trong bảng",
+      "bước 7": "Lặp lại để thêm SP khác",
+      "bước 8": "Click 'Thanh toán' → Tạo hóa đơn",
+      "bước 9": "(Tùy chọn) Click 'In hóa đơn'",
+      "kết quả": "Hóa đơn được tạo, tồn kho tự trừ"
+    },
+    "kiểm kê kho": {
+      "bước 1": "Click tab 'Ca bán hàng' → sub-tab 'Nhận hàng'",
+      "bước 2": "Click nút 'Kiểm kê kho'",
+      "bước 3": "Nhập số lượng đếm thực tế cho từng sản phẩm",
+      "bước 4": "Click 'Xác nhận kiểm kê'",
+      "bước 5": "Nếu có chênh lệch → Nhập lý do (bắt buộc)",
+      "bước 6": "Tích chọn các dòng muốn áp vào kho",
+      "bước 7": "Click 'Áp chênh lệch vào kho'",
+      "kết quả": "Tồn kho cập nhật theo số đếm thực tế, log ghi vào bảng ChenhLech"
+    },
+    "xử lý chênh lệch": {
+      "bước 1": "Click tab 'Chênh lệch'",
+      "bước 2": "Chọn khoảng thời gian (từ ngày - đến ngày)",
+      "bước 3": "Click 'Tải dữ liệu'",
+      "bước 4": "Tích chọn các dòng chênh lệch cần xử lý (cột 'Xử lý')",
+      "bước 5": "Click nút 'Xử lý chênh lệch'",
+      "bước 6": "Chọn loại xử lý từ dropdown:\n   - Bán bổ sung (nộp tiền)\n   - Trả lại tiền\n   - Thay thế hàng\n   - Coi như đã bán",
+      "bước 7": "Chọn user chịu trách nhiệm",
+      "bước 8": "Click 'Xác nhận'",
+      "kết quả": "Chênh lệch được xử lý, cập nhật vào database"
+    },
+    "đóng ca": {
+      "bước 1": "Click tab 'Báo cáo'",
+      "bước 2": "Click nút 'Tổng kết ca'",
+      "bước 3": "Chọn ca (ví dụ: Ca 1, Ca 2)",
+      "bước 4": "Click 'Xuất báo cáo'",
+      "kết quả": "File HTML báo cáo được tạo trong thư mục data_export/tong_ket_ca/"
+    },
+    "xem báo cáo kho": {
+      "bước 1": "Click tab 'Báo cáo'",
+      "bước 2": "Click sub-tab 'Báo cáo kho'",
+      "bước 3": "Chọn khoảng thời gian",
+      "bước 4": "Click 'Tải dữ liệu'",
+      "kết quả": "Hiển thị bảng: Tồn đầu, Nhập, Xuất, Tồn cuối cho từng sản phẩm"
+    }
+  },
+  "database": {
+    "SanPham": {
+      "cột": [
+        "id",
+        "ten",
+        "ma_code",
+        "don_vi",
+        "ton_kho",
+        "gia_le",
+        "gia_buon",
+        "gia_vip",
+        "nguong_buon"
+      ],
+      "giải thích": "Bảng sản phẩm chính. ton_kho cập nhật real-time khi nhập/xuất"
+    },
+    "HoaDon": {
+      "cột": [
+        "id",
+        "ngay",
+        "tong_tien",
+        "trang_thai",
+        "ghi_chu",
+        "user_id"
+      ],
+      "giải thích": "Bảng hóa đơn tổng. Chi tiết hóa đơn trong ChiTietHoaDon"
+    },
+    "ChiTietHoaDon": {
+      "cột": [
+        "id",
+        "hoadon_id",
+        "sanpham_id",
+        "so_luong",
+        "don_gia",
+        "loai_gia"
+      ],
+      "giải thích": "Từng dòng sản phẩm trong hóa đơn"
+    },
+    "LogKho": {
+      "cột": [
+        "id",
+        "ngay",
+        "sanpham_id",
+        "loai",
+        "so_luong",
+        "ton_truoc",
+        "ton_sau",
+        "ghi_chu",
+        "user_id"
+      ],
+      "giải thích": "Log mọi thay đổi kho: nhập (NHAP), xuất (XUAT), kiểm kê (KIEM_KE)"
+    },
+    "ChenhLech": {
+      "cột": [
+        "id",
+        "ngay",
+        "sanpham_id",
+        "chenh",
+        "ton_truoc",
+        "ton_sau",
+        "ghi_chu"
+      ],
+      "giải thích": "Lưu các lần chênh lệch kho sau kiểm kê. chenh = số đếm - tồn hệ thống"
+    },
+    "User": {
+      "cột": [
+        "id",
+        "username",
+        "password",
+        "role",
+        "so_du"
+      ],
+      "giải thích": "Bảng user. role: admin/accountant/staff"
+    }
+  },
+  "giá bán": {
+    "giá lẻ": "Áp dụng cho khách mua số lượng < ngưỡng buôn",
+    "giá buôn": "Áp dụng khi số lượng >= ngưỡng buôn (ví dụ: >=100)",
+    "giá VIP": "Giá ưu đãi cho khách thân thiết (thấp nhất)",
+    "ngưỡng buôn": "Số lượng tối thiểu để được giá buôn (mặc định: 100)",
+    "ví dụ ngưỡng": {
+      "PLC KOMAT": "Ngưỡng buôn: 100 lít",
+      "PLC RACER 2T": "Ngưỡng buôn: 50 lít",
+      "PCL GEAR OIL": "Ngưỡng buôn: 100 lít"
+    },
+    "cách tính": "Nếu số lượng >= ngưỡng buôn → áp giá buôn, ngược lại → giá lẻ"
+  },
+  "sổ quỹ logic": {
+    "mô tả": "Sổ quỹ quản lý số dư tiền của từng user (staff)",
+    "tăng khi": [
+      "Nhận chuyển khoản từ user khác",
+      "Bán bổ sung (xuất bỏ) → được thanh toán",
+      "Nộp tiền vào quỹ"
+    ],
+    "giảm khi": [
+      "Chuyển tiền cho user khác",
+      "Trả tiền (xử lý chênh lệch)",
+      "Rút tiền từ quỹ"
+    ],
+    "tab": "Sổ quỹ (chỉ Accountant và Admin)",
+    "xem": "Lịch sử thu chi, số dư hiện tại của từng user"
+  },
+  "quyền hạn": {
+    "admin": {
+      "xem": "Tất cả tabs",
+      "thao tác": "Thêm/xóa/sửa mọi thứ (user, sản phẩm, hóa đơn, báo cáo)"
+    },
+    "accountant": {
+      "xem": "Tất cả trừ 'Quản lý User', 'Xuất bổ', 'Công đoàn', 'Nhập đầu kỳ'",
+      "thao tác": "Xem báo cáo, sản phẩm, hóa đơn (không thêm/xóa user)"
+    },
+    "staff": {
+      "xem": "Trang chủ, Ca bán hàng, Chi tiết bán, Hóa đơn, AI Agent",
+      "thao tác": "Chỉ nhận hàng, bán hàng, xem hóa đơn của mình"
+    }
+  },
+  "shortcuts": {
+    "F1": "Tab Trang chủ",
+    "F2": "Tab Sản phẩm",
+    "F3": "Tab Lịch sử giá",
+    "F4": "Tab Ca bán hàng → Nhận hàng",
+    "F5": "Tab Ca bán hàng → Bán hàng",
+    "F6": "Tab Chi tiết bán",
+    "F7": "Tab Hóa đơn",
+    "F8": "Tab Báo cáo",
+    "F9": "Tab AI Agent",
+    "F10": "Tab Quản lý User",
+    "Enter": "Trong AI chat → Gửi tin nhắn"
+  },
+  "ví dụ sản phẩm": {
+    "RON 95-III": "Xăng RON 95, đơn vị: lít",
+    "DO 0.05S-II": "Dầu Diesel, đơn vị: lít",
+    "KOMAT": "Hóa chất, đơn vị: can",
+    "Dầu nhớt": "Dầu nhớt, đơn vị: lít"
+  },
+  "auto_learned_database": {
+    "Users": {
+      "columns": [
+        "id",
+        "username",
+        "password",
+        "role",
+        "so_du"
+      ],
+      "sample_count": 5,
+      "total_rows": 7
+    },
+    "sqlite_sequence": {
+      "columns": [
+        "name",
+        "seq"
+      ],
+      "sample_count": 5,
+      "total_rows": 8
+    },
+    "SanPham": {
+      "columns": [
+        "id",
+        "ten",
+        "gia_le",
+        "gia_buon",
+        "gia_vip",
+        "ton_kho",
+        "nguong_buon",
+        "don_vi"
+      ],
+      "sample_count": 5,
+      "total_rows": 18
+    },
+    "product_thresholds": {
+      "PLC KOMAT SUPER 20W/40 200 lít": 200,
+      "PLC KOMAT SUPER 20W/50 200 lít": 200,
+      "PLC RACER PLUS 4 lít": 6,
+      "PLC RACER 2T 1 lít": 24,
+      "PLC RACER SF 1 lít": 24,
+      "PLC RACER SJ 1 lít": 24,
+      "PLC RACER SCOOTER 0.8 lít": 24,
+      "PLC KOMAT SHD/40 18 lít": 2,
+      "PLC KOMAT SHD 40 4 lít": 6,
+      "PLC KOMAT SHD/50 18 lít": 2,
+      "PLC KOMAT SHD/50 25 lít": 2,
+      "PLC CACER CI-4 15W/40 5 lít": 4,
+      "PLC CARTER CI-4 15W/40 18 lít": 2,
+      "PLC KOMAT SHD/40 25 lít": 2,
+      "PCL GEAR OIL MP 90EP 4 lít": 6,
+      "PLC GEAR OIL MP 140EP 4 lít": 6,
+      "PLC-AW HYDROIL 68 209 lít": 209,
+      "PLC-AW HYDROIL 68 18 lít": 2
+    },
+    "HoaDon": {
+      "columns": [
+        "id",
+        "user_id",
+        "khach_hang",
+        "ngay",
+        "trang_thai",
+        "tong",
+        "giam_gia",
+        "khach_uu_dai",
+        "xuat_hoa_don",
+        "tong_tien",
+        "uu_dai",
+        "tong_sau_uu_dai",
+        "tong_cuoi"
+      ],
+      "sample_count": 5,
+      "total_rows": 8
+    },
+    "ChiTietHoaDon": {
+      "columns": [
+        "id",
+        "hoadon_id",
+        "sanpham_id",
+        "so_luong",
+        "gia",
+        "loai_gia",
+        "giam",
+        "xuat_hoa_don",
+        "ghi_chu"
+      ],
+      "sample_count": 5,
+      "total_rows": 24
+    },
+    "LogKho": {
+      "columns": [
+        "id",
+        "sanpham_id",
+        "user_id",
+        "ngay",
+        "hanh_dong",
+        "so_luong",
+        "ton_truoc",
+        "ton_sau",
+        "gia_ap_dung",
+        "chenh_lech_cong_doan",
+        "loai_gia"
+      ],
+      "sample_count": 5,
+      "total_rows": 24
+    },
+    "CongDoan": {
+      "columns": [
+        "id",
+        "sanpham_id",
+        "user_id",
+        "ngay",
+        "so_luong",
+        "chenh_lech"
+      ],
+      "sample_count": 0,
+      "total_rows": 0
+    },
+    "GiaoDichQuy": {
+      "columns": [
+        "id",
+        "user_id",
+        "user_nhan_id",
+        "so_tien",
+        "ngay",
+        "hoadon_id",
+        "ghi_chu"
+      ],
+      "sample_count": 3,
+      "total_rows": 3
+    },
+    "ChenhLech": {
+      "columns": [
+        "id",
+        "sanpham_id",
+        "user_id",
+        "ngay",
+        "chenh",
+        "ton_truoc",
+        "ton_sau",
+        "ghi_chu"
+      ],
+      "sample_count": 0,
+      "total_rows": 0
+    },
+    "DauKyXuatBo": {
+      "columns": [
+        "id",
+        "user_id",
+        "sanpham_id",
+        "ten_sanpham",
+        "so_luong",
+        "loai_gia",
+        "gia",
+        "ngay"
+      ],
+      "sample_count": 5,
+      "total_rows": 20
+    },
+    "XuatDu": {
+      "columns": [
+        "id",
+        "user_id",
+        "sanpham_id",
+        "ten_sanpham",
+        "so_luong",
+        "loai_gia",
+        "ngay"
+      ],
+      "sample_count": 0,
+      "total_rows": 0
+    },
+    "ChenhLechXuatBo": {
+      "columns": [
+        "id",
+        "user_id",
+        "sanpham_id",
+        "ten_sanpham",
+        "so_luong",
+        "loai_gia_nguon",
+        "loai_gia_xuat",
+        "gia_ban",
+        "gia_xuat",
+        "chenh_lech",
+        "ngay",
+        "is_gia_moi"
+      ],
+      "sample_count": 1,
+      "total_rows": 1
+    },
+    "LichSuGia": {
+      "columns": [
+        "id",
+        "sanpham_id",
+        "ten_sanpham",
+        "loai_gia",
+        "gia_cu",
+        "gia_moi",
+        "user_id",
+        "ngay_thay_doi",
+        "ghi_chu"
+      ],
+      "sample_count": 0,
+      "total_rows": 0
+    }
+  },
+  "auto_learned_ui": {
+    "buttons": [
+      "XUẤT BỔ",
+      "➖ Xóa dòng",
+      "Xử lý chênh lệch",
+      "✏️ Sửa chi tiết",
+      "Đóng ca",
+      "➕ Thêm dòng",
+      "✖",
+      "Tải danh sách sản phẩm",
+      "❓ Hướng dẫn",
+      "Tải báo cáo",
+      "📝 Sửa hóa đơn",
+      "In phiếu",
+      "OK - Xác nhận xuất bổ",
+      "🤖",
+      "Hủy",
+      "💾 Lưu thay đổi",
+      "Làm mới báo cáo kho",
+      "📊 Tải dữ liệu",
+      "Import Excel",
+      "Thêm user"
+    ],
+    "tabs": [
+      "Số dư",
+      "Công đoàn",
+      "Chi tiết bán",
+      "🤖 AI Agent",
+      "Biểu đồ sản lượng",
+      "Sản phẩm",
+      "Lịch sử giao dịch",
+      "Ca bán hàng",
+      "Hóa đơn",
+      "Quản lý User",
+      "Sổ quỹ",
+      "Lịch sử giá",
+      "Báo cáo kho",
+      "Bán hàng",
+      "Báo cáo",
+      "Chênh lệch",
+      "Xuất bổ",
+      "Sản phẩm đã bán",
+      "🏠 Trang chủ",
+      "Nhận hàng",
+      "Số dư User",
+      "Nhập đầu kỳ"
+    ],
+    "shortcuts": []
+  },
+  "auto_learned_logic": {
+    "pricing": {
+      "types": [
+        "giá lẻ",
+        "giá buôn",
+        "giá VIP"
+      ],
+      "rule": "Nếu số lượng >= ngưỡng buôn → giá buôn, ngược lại → giá lẻ"
+    }
+  },
+  "ui_locations": {
+    "nút đăng xuất": "Góc trên bên phải màn hình, cạnh username",
+    "AI chat": "Bên phải màn hình (panel có thể đóng/mở)",
+    "tabs": "Phía trên màn hình",
+    "buttons": "Dưới các bảng dữ liệu"
+  },
+  "product_specific_thresholds": {
+    "PLC KOMAT SUPER 20W/40 200 lít": 200,
+    "PLC KOMAT SUPER 20W/50 200 lít": 200,
+    "PLC RACER PLUS 4 lít": 6,
+    "PLC RACER 2T 1 lít": 24,
+    "PLC RACER SF 1 lít": 24,
+    "PLC RACER SJ 1 lít": 24,
+    "PLC RACER SCOOTER 0.8 lít": 24,
+    "PLC KOMAT SHD/40 18 lít": 2,
+    "PLC KOMAT SHD 40 4 lít": 6,
+    "PLC KOMAT SHD/50 18 lít": 2,
+    "PLC KOMAT SHD/50 25 lít": 2,
+    "PLC CACER CI-4 15W/40 5 lít": 4,
+    "PLC CARTER CI-4 15W/40 18 lít": 2,
+    "PLC KOMAT SHD/40 25 lít": 2,
+    "PCL GEAR OIL MP 90EP 4 lít": 6,
+    "PLC GEAR OIL MP 140EP 4 lít": 6,
+    "PLC-AW HYDROIL 68 209 lít": 209,
+    "PLC-AW HYDROIL 68 18 lít": 2
+  }
+}

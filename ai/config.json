@@ -1,0 +1,6 @@
+{
+  "groq_api_key": "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",
+  "ollama_url": "http://localhost:11434",
+  "offline_model": "phi3:mini",
+  "use_rag": true
+}
